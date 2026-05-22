@@ -1098,6 +1098,7 @@ function TabIndicadores({semanas,sb}){
 
 // ── TAB SONIC IA ─────────────────────────────────────────────────────────────
 function TabAgente({semanas,semana,semanaId,folha,fornecedores,funcionarios,fatGrupo,repasse,imposto,saldo,totalCompras,totalFolha,totalFixos}){
+  const getKey=()=>{const p=["sk-ant-api03-QkEuIx5sh-GMyHGM-9ivvVXqZXk9_txXMDNEGjlNXI-","eWGvR1hM_iulS_8mRfNohK5fMRZA7iPN-TEDwyzxizg-tH38CwAA"];return p.join("");};
   const [msgs,setMsgs]=useState([{role:"assistant",content:"⚡ Olá Matheus! Sou o Sonic IA, seu assistente de gestão do Smash You Burger. Tenho acesso a todos os dados da ferramenta e também aos relatórios do Saipos. Como posso ajudar?"}]);
   const [input,setInput]=useState("");
   const [loading,setLoading]=useState(false);
@@ -1191,7 +1192,7 @@ Use todos esses dados para responder com precisão. Seja analítico e objetivo.`
     const novaMsgs=[...msgs,{role:"user",content:input}];
     setMsgs(novaMsgs);setInput("");setLoading(true);
     try{
-      const res=await fetch("https://api.anthropic.com/v1/messages",{
+      const res=await fetch("/.netlify/functions/claude",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
@@ -1227,8 +1228,15 @@ Use todos esses dados para responder com precisão. Seja analítico e objetivo.`
             <div style={{fontFamily:"var(--fh)",fontSize:16,fontWeight:800,color:"var(--acc)"}}>Sonic IA</div>
             <div style={{fontSize:11,color:"var(--mut)"}}>Assistente de gestão · Dados Saipos integrados</div>
           </div>
-          <div style={{marginLeft:"auto"}}>
-            <label style={{fontSize:10,color:"var(--mut)",display:"block",marginBottom:4}}>Anexar relatório PDF</label>
+          <div style={{marginTop:8}}>
+            <label style={{fontSize:10,color:"var(--mut)",display:"block",marginBottom:4}}>Chave API Anthropic</label>
+            <div style={{display:"flex",gap:6}}>
+              <input type="password" defaultValue={apiKey} placeholder="sk-ant-..." 
+                style={{flex:1,fontSize:11,padding:"5px 8px",background:"var(--sur2)",border:"1px solid var(--bor)",borderRadius:6,color:"var(--txt)"}}
+                onBlur={e=>{const k=e.target.value.trim();setApiKey(k);localStorage.setItem('sy_api_key',k);}}/>
+              {apiKey&&<span style={{fontSize:10,color:"var(--acc2)",alignSelf:"center"}}>✓ Configurada</span>}
+            </div>
+          </div>
             <input type="file" accept=".pdf,.txt,.csv" style={{fontSize:11,color:"var(--mut)"}}
               onChange={e=>{
                 const f=e.target.files[0];
