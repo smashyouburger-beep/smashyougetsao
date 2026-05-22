@@ -34,6 +34,17 @@ function calcComprar(item,estoque){
   return Math.ceil(diff/num(item.fator));
 }
 
+const ITENS_DIARIOS=[{forn:"Mercado",itens:[
+  {nome:"Pão",tipo:"un",min:50},{nome:"Blend/Carne",tipo:"peso",min:3000},
+  {nome:"Frango",tipo:"un",min:10},{nome:"Batata",tipo:"peso",min:5000},
+  {nome:"Alface",tipo:"un",min:10},{nome:"Picles",tipo:"un",min:5},
+  {nome:"Cebola",tipo:"peso",min:2000},{nome:"Cebola Roxa",tipo:"peso",min:1000},
+  {nome:"Tomate",tipo:"peso",min:2000},{nome:"Queijo",tipo:"peso",min:1000},
+  {nome:"Coca Cola Original",tipo:"un",min:24},{nome:"Coca Cola Zero",tipo:"un",min:12},
+  {nome:"Guaraná / Itubaina",tipo:"un",min:12},{nome:"Suco",tipo:"un",min:6},
+  {nome:"Água s/ Gás",tipo:"un",min:6},{nome:"Embalagem Batata Total",tipo:"un",min:50},
+]}];
+
 const css=`
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#0f1117;--sur:#181c27;--sur2:#1e2333;--bor:#2a2f42;--acc:#f0c040;--acc2:#3ecf8e;--acc3:#e05c5c;--txt:#e8eaf0;--mut:#7a8099;--fh:'Syne',sans-serif;--fb:'DM Sans',sans-serif;--r:12px}
@@ -423,8 +434,10 @@ function TabEstoque({fornecedores,contagem,updateContagem,updateItem,gerarPedido
   },[subTab]);
 
   const abrirWhatsapp=(forn)=>{
-    const num=whatsapps[forn];
-    if(!num){showToast("Cadastre o WhatsApp na aba Config!");return;}
+    const rawNum=whatsapps[forn];
+    if(!rawNum){showToast("Cadastre o WhatsApp na aba Config!");return;}
+    const num=rawNum.replace(/\D/g,""); // remove tudo que não é dígito
+    if(!num){showToast("Número inválido! Use formato: 5519999999999");return;}
     const pedido=gerarPedido(forn);
     if(!pedido){showToast("Nenhum item a pedir!");return;}
     const msg=encodeURIComponent(pedido);
@@ -445,11 +458,34 @@ function TabEstoque({fornecedores,contagem,updateContagem,updateItem,gerarPedido
       {subTab==="diaria"&&(
         <div className="card">
           <div className="ctit">🛒 Compras Diárias — {new Date().toLocaleDateString("pt-BR")}</div>
-          {comprasDiarias.length===0?<div style={{color:"var(--mut)",fontSize:13}}>Nenhuma contagem diária hoje.</div>:(
-            <table><thead><tr><th>Item</th><th style={{textAlign:"center"}}>Qtd</th></tr></thead>
-              <tbody>{comprasDiarias.map(c=><tr key={c.id}><td>{c.item}</td><td style={{textAlign:"center",fontWeight:700,color:"var(--acc)"}}>{c.quantidade}</td></tr>)}</tbody>
+          {comprasDiarias.length===0?<div style={{color:"var(--mut)",fontSize:13,marginBottom:10}}>Nenhuma contagem diária hoje.</div>:(
+            <table>
+              <thead><tr>
+                <th>Item</th>
+                <th style={{textAlign:"center",width:70}}>Estoque</th>
+                <th style={{textAlign:"center",width:70}}>Mínimo</th>
+                <th style={{textAlign:"center",width:80}}>A comprar</th>
+              </tr></thead>
+              <tbody>{comprasDiarias.map(c=>{
+                const minItem=ITENS_DIARIOS[0]?.itens?.find(i=>i.nome===c.item);
+                const min=minItem?.min||0;
+                const comprar=Math.max(0,min-num(c.quantidade));
+                return(
+                  <tr key={c.id}>
+                    <td>{c.item}</td>
+                    <td style={{textAlign:"center",fontWeight:700,color:"var(--acc)"}}>{c.quantidade}</td>
+                    <td style={{textAlign:"center",color:"var(--mut)"}}>{min}</td>
+                    <td style={{textAlign:"center",fontWeight:700,color:comprar>0?"var(--acc3)":"var(--acc2)"}}>{comprar>0?`▲ ${comprar}`:"OK"}</td>
+                  </tr>
+                );
+              })}</tbody>
             </table>
           )}
+          <button className="btn bg sml" style={{marginTop:10}} onClick={()=>{
+            const hoje=new Date().toISOString().split("T")[0];
+            sb.from("contagem_diaria").select("*").eq("data",hoje).then(({data})=>setComprasDiarias(data||[]));
+            showToast("Atualizado!");
+          }}>🔄 Atualizar</button>
         </div>
       )}
       {subTab==="semanal"&&Object.entries(fornecedores).map(([forn,itens])=>{
@@ -601,11 +637,18 @@ function TabVales({vales,lancarVale,removerVale,funcionarios}){
 function TabPonto({semanaId,funcionarios,sb}){
   const [registros,setRegistros]=useState([]);
   const [loading,setLoading]=useState(true);
-  const ENTRADA_H=17,ENTRADA_M=0,SAIDA_H=23,SAIDA_M=20,INT_MAX=20;
+  const ENTRADA_H=17,ENTRADA_M=0,SAIDA_H=23,SAIDA_M=20,INT_MAX=20,TOLERANCIA=5;
+
+  // Calcula diferença em minutos entre dois timestamps considerando virada de meia-noite
+  const diffMinutos=(ts1,ts2)=>{
+    const d1=new Date(ts1),d2=new Date(ts2);
+    let diff=Math.round((d2-d1)/60000);
+    return diff;
+  };
   const toMin=(h,m)=>h*60+m;
-  const diffMin=(t1,t2)=>Math.round((new Date(t2)-new Date(t1))/60000);
   const fmtHora=(ts)=>{const d=new Date(ts);return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;};
   const fmtData=(ts)=>{const d=new Date(ts);return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`;};
+  const fmtDuracao=(min)=>{const h=Math.floor(Math.abs(min)/60);const m=Math.abs(min)%60;return `${h}h${String(m).padStart(2,"0")}`;};
 
   useEffect(()=>{if(semanaId)carregar();},[semanaId]);
   const carregar=async()=>{
@@ -613,78 +656,126 @@ function TabPonto({semanaId,funcionarios,sb}){
     const {data}=await sb.from("ponto").select("*").eq("semana_id",semanaId).order("horario",{ascending:true});
     setRegistros(data||[]);setLoading(false);
   };
-  const calcSaldo=(regs)=>{
-    let s=0;const pd={};
-    regs.forEach(r=>{const d=new Date(r.horario).toDateString();if(!pd[d])pd[d]=[];pd[d].push(r);});
-    Object.values(pd).forEach(dia=>{
-      const ent=dia.find(r=>r.tipo==="entrada");
-      const si=dia.find(r=>r.tipo==="saida_intervalo");
-      const vi=dia.find(r=>r.tipo==="volta_intervalo");
-      const sai=dia.find(r=>r.tipo==="saida");
-      if(ent){const d=new Date(ent.horario);s+=toMin(ENTRADA_H,ENTRADA_M)-toMin(d.getHours(),d.getMinutes());}
-      if(si&&vi){const dur=diffMin(si.horario,vi.horario);s-=Math.max(0,dur-INT_MAX);}
-      if(sai){const d=new Date(sai.horario);s+=toMin(d.getHours(),d.getMinutes())-toMin(SAIDA_H,SAIDA_M);}
+
+  // Agrupa registros por dia (usando data local)
+  const agruparPorDia=(regs)=>{
+    const pd={};
+    regs.forEach(r=>{
+      const d=new Date(r.horario);
+      const dStr=`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      if(!pd[dStr])pd[dStr]=[];
+      pd[dStr].push(r);
     });
-    return s;
+    return pd;
   };
+
+  const calcDia=(dregs)=>{
+    const ent=dregs.find(r=>r.tipo==="entrada");
+    const si=dregs.find(r=>r.tipo==="saida_intervalo");
+    const vi=dregs.find(r=>r.tipo==="volta_intervalo");
+    const sai=dregs.find(r=>r.tipo==="saida");
+
+    let atrEnt=0,credEnt=0,excInt=0,tempoTotal=0;
+
+    // Atraso na entrada (com tolerância de 5 min)
+    if(ent){
+      const d=new Date(ent.horario);
+      const minEnt=toMin(d.getHours(),d.getMinutes());
+      const minRef=toMin(ENTRADA_H,ENTRADA_M);
+      const diff=minEnt-minRef; // positivo = atrasado
+      if(diff>TOLERANCIA)atrEnt=diff;
+      else if(diff<0)credEnt=Math.abs(diff);
+    }
+
+    // Excesso no intervalo
+    if(si&&vi){
+      const dur=diffMinutos(si.horario,vi.horario);
+      if(dur>INT_MAX)excInt=dur-INT_MAX;
+    }
+
+    // Tempo corrido entrada→saída (considerando virada de meia-noite)
+    if(ent&&sai){
+      tempoTotal=diffMinutos(ent.horario,sai.horario);
+      // Descontar intervalo
+      if(si&&vi)tempoTotal-=diffMinutos(si.horario,vi.horario);
+    }
+
+    return{atrEnt,credEnt,excInt,tempoTotal,ent,si,vi,sai};
+  };
+
   const tipoLabel={entrada:"Entrada",saida_intervalo:"Saída int.",volta_intervalo:"Volta int.",saida:"Saída"};
+
   if(loading)return <div className="lod">Carregando ponto...</div>;
+
   const porFunc={};
   registros.forEach(r=>{if(!porFunc[r.funcionario_id])porFunc[r.funcionario_id]={nome:r.funcionario_nome,regs:[]};porFunc[r.funcionario_id].regs.push(r);});
-  const totalAtrasos=Object.values(porFunc).reduce((a,f)=>{const s=calcSaldo(f.regs);return a+(s<0?Math.abs(s):0);},0);
-  const totalCreditos=Object.values(porFunc).reduce((a,f)=>{const s=calcSaldo(f.regs);return a+(s>0?s:0);},0);
+
+  // Resumo geral — só atrasos
+  const funcsComAtraso=Object.values(porFunc).filter(f=>{
+    const pd=agruparPorDia(f.regs);
+    return Object.values(pd).some(dregs=>calcDia(dregs).atrEnt>0);
+  });
+
   return(
     <div>
+      {/* Resumo geral no topo */}
       <div className="sg" style={{marginBottom:16}}>
-        <div className="st"><div className="sl">Total registros</div><div className="sv yw">{registros.length}</div></div>
-        <div className="st"><div className="sl">Min. de atraso</div><div className="sv rd">{totalAtrasos} min</div></div>
-        <div className="st"><div className="sl">Min. de crédito</div><div className="sv gn">{totalCreditos} min</div></div>
+        <div className="st"><div className="sl">Funcionários com atraso</div><div className="sv rd">{funcsComAtraso.length}</div></div>
+        <div className="st"><div className="sl">Total de registros</div><div className="sv yw">{registros.length}</div></div>
+        <div className="st"><div className="sl">Tolerância entrada</div><div className="sv gn">{TOLERANCIA} min</div></div>
       </div>
+
       {funcionarios.map(func=>{
-        const fd=porFunc[func.id];const regs=fd?.regs||[];const saldo=calcSaldo(regs);
-        const pd={};regs.forEach(r=>{const d=new Date(r.horario).toDateString();if(!pd[d])pd[d]=[];pd[d].push(r);});
+        const fd=porFunc[func.id];
+        const regs=fd?.regs||[];
+        const pd=agruparPorDia(regs);
+        const totalAtrMin=Object.values(pd).reduce((a,dregs)=>a+calcDia(dregs).atrEnt,0);
+        const totalCredMin=Object.values(pd).reduce((a,dregs)=>a+calcDia(dregs).credEnt,0);
+
         return(
           <div className="card" key={func.id} style={{marginBottom:12}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
               <div style={{fontFamily:"var(--fh)",fontSize:14,fontWeight:700}}>👤 {func.nome}</div>
-              <div style={{display:"flex",gap:8}}>
-                {regs.length===0&&<span className="bdg" style={{background:"var(--sur2)",color:"var(--mut)"}}>Sem registros</span>}
-                {saldo>0&&<span className="bdg bg2">+{saldo} min crédito</span>}
-                {saldo<0&&<span className="bdg br">{Math.abs(saldo)} min atraso</span>}
-                {saldo===0&&regs.length>0&&<span className="bdg bg2">No horário ✓</span>}
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
+                <span className="bdg by">{regs.length} registros</span>
+                {totalAtrMin>0&&<span className="bdg br">⚠ {totalAtrMin} min atraso</span>}
+                {totalCredMin>0&&<span className="bdg bg2">+{totalCredMin} min adiantado</span>}
+                {totalAtrMin===0&&regs.length>0&&<span className="bdg bg2">✓ Sem atrasos</span>}
               </div>
             </div>
-            {Object.entries(pd).map(([dia,dregs])=>{
-              const ent=dregs.find(r=>r.tipo==="entrada");
-              const si=dregs.find(r=>r.tipo==="saida_intervalo");
-              const vi=dregs.find(r=>r.tipo==="volta_intervalo");
-              const sai=dregs.find(r=>r.tipo==="saida");
-              let atrEnt=0,excInt=0,saiAnt=0,credEnt=0,credSai=0;
-              if(ent){const d=new Date(ent.horario);const diff=toMin(ENTRADA_H,ENTRADA_M)-toMin(d.getHours(),d.getMinutes());if(diff<0)atrEnt=Math.abs(diff);else credEnt=diff;}
-              if(si&&vi){const dur=diffMin(si.horario,vi.horario);if(dur>INT_MAX)excInt=dur-INT_MAX;}
-              if(sai){const d=new Date(sai.horario);const diff=toMin(d.getHours(),d.getMinutes())-toMin(SAIDA_H,SAIDA_M);if(diff<0)saiAnt=Math.abs(diff);else credSai=diff;}
-              return(
-                <div key={dia} style={{marginBottom:10,background:"var(--sur2)",borderRadius:8,padding:10}}>
-                  <div style={{fontSize:11,color:"var(--mut)",fontWeight:700,marginBottom:8}}>📅 {fmtData(dregs[0].horario)}</div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(100px,1fr))",gap:6,marginBottom:8}}>
-                    {dregs.map(r=>(
-                      <div key={r.id} style={{textAlign:"center",padding:"6px 4px",background:"var(--sur)",borderRadius:6}}>
-                        <div style={{fontSize:10,color:"var(--mut)",marginBottom:2}}>{tipoLabel[r.tipo]||r.tipo}</div>
-                        <div style={{fontSize:13,fontWeight:700}}>{fmtHora(r.horario)}</div>
-                      </div>
-                    ))}
+
+            {Object.entries(pd).length===0?(
+              <div style={{color:"var(--mut)",fontSize:12}}>Nenhum registro essa semana.</div>
+            ):(
+              Object.entries(pd).map(([diaKey,dregs])=>{
+                const {atrEnt,credEnt,excInt,tempoTotal,ent,si,vi,sai}=calcDia(dregs);
+                return(
+                  <div key={diaKey} style={{marginBottom:10,background:"var(--sur2)",borderRadius:8,padding:10}}>
+                    <div style={{fontSize:11,color:"var(--mut)",fontWeight:700,marginBottom:8}}>📅 {fmtData(dregs[0].horario)}</div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(90px,1fr))",gap:6,marginBottom:8}}>
+                      {dregs.map(r=>(
+                        <div key={r.id} style={{textAlign:"center",padding:"6px 4px",background:"var(--sur)",borderRadius:6}}>
+                          <div style={{fontSize:10,color:"var(--mut)",marginBottom:2}}>{tipoLabel[r.tipo]||r.tipo}</div>
+                          <div style={{fontSize:13,fontWeight:700}}>{fmtHora(r.horario)}</div>
+                        </div>
+                      ))}
+                      {ent&&sai&&(
+                        <div style={{textAlign:"center",padding:"6px 4px",background:"var(--sur)",borderRadius:6,border:"1px solid var(--acc2)"}}>
+                          <div style={{fontSize:10,color:"var(--mut)",marginBottom:2}}>⏱ Tempo corrido</div>
+                          <div style={{fontSize:13,fontWeight:700,color:"var(--acc2)"}}>{fmtDuracao(tempoTotal)}</div>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {atrEnt>0&&<span className="bdg br">Atraso entrada: {atrEnt} min</span>}
+                      {credEnt>0&&<span className="bdg bg2">Adiantado: {credEnt} min</span>}
+                      {excInt>0&&<span className="bdg br">Intervalo +{excInt} min</span>}
+                      {atrEnt===0&&excInt===0&&ent&&<span className="bdg bg2">✓ Sem ocorrências</span>}
+                    </div>
                   </div>
-                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                    {atrEnt>0&&<span className="bdg br">Atraso: {atrEnt} min</span>}
-                    {credEnt>0&&<span className="bdg bg2">Adiantado: {credEnt} min</span>}
-                    {excInt>0&&<span className="bdg br">Intervalo +{excInt} min</span>}
-                    {saiAnt>0&&<span className="bdg br">Saída antec.: {saiAnt} min</span>}
-                    {credSai>0&&<span className="bdg bg2">Hora extra: {credSai} min</span>}
-                    {atrEnt===0&&excInt===0&&saiAnt===0&&ent&&<span className="bdg bg2">✓ OK</span>}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         );
       })}
@@ -807,17 +898,16 @@ ${pdfTexto?`PDF ANEXADO: ${pdfTexto}`:""}`;
     const novaMsgs=[...msgs,{role:"user",content:input}];
     setMsgs(novaMsgs);setInput("");setLoading(true);
     try{
-      const res=await fetch("/.netlify/functions/claude",{
+      const res=await fetch("https://api.openai.com/v1/chat/completions",{
         method:"POST",
-        headers:{"Content-Type":"application/json"},
+        headers:{"Content-Type":"application/json","Authorization":"Bearer OPENAI_KEY_AQUI"},
         body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",max_tokens:1500,
-          system:ctx,
-          messages:novaMsgs.filter((m,i)=>m.role==="user"||(m.role==="assistant"&&i>0)).map(m=>({role:m.role,content:m.content}))
+          model:"gpt-4o-mini",max_tokens:1500,
+          messages:[{role:"system",content:ctx},...novaMsgs.filter((m,i)=>m.role==="user"||(m.role==="assistant"&&i>0)).map(m=>({role:m.role,content:m.content}))]
         })
       });
       const data=await res.json();
-      setMsgs(prev=>[...prev,{role:"assistant",content:data.content?.[0]?.text||"Não consegui responder."}]);
+      setMsgs(prev=>[...prev,{role:"assistant",content:data.choices?.[0]?.message?.content||"Não consegui responder."}]);
     }catch{
       setMsgs(prev=>[...prev,{role:"assistant",content:"Erro ao conectar. Tente novamente."}]);
     }
