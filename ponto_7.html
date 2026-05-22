@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>Smash You — Ponto</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f1117;--sur:#181c27;--sur2:#1e2333;--bor:#2a2f42;--acc:#f0c040;--acc2:#3ecf8e;--acc3:#e05c5c;--txt:#e8eaf0;--mut:#7a8099;--fh:'Syne',sans-serif;--fb:'DM Sans',sans-serif;}
+body{background:var(--bg);color:var(--txt);font-family:var(--fb);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px 40px;}
+.logo{display:flex;align-items:center;gap:12px;margin-bottom:32px;margin-top:8px;}
+.logo-box{width:48px;height:48px;background:var(--acc);border-radius:12px;display:flex;align-items:center;justify-content:center;font-family:var(--fh);font-weight:800;font-size:18px;color:#0f1117;}
+.logo-title{font-family:var(--fh);font-size:20px;font-weight:800;}
+.logo-sub{font-size:11px;color:var(--mut);margin-top:2px;}
+.card{background:var(--sur);border:1px solid var(--bor);border-radius:16px;padding:24px;width:100%;max-width:420px;margin-bottom:16px;}
+.clock{text-align:center;margin-bottom:28px;}
+.clock-time{font-family:var(--fh);font-size:52px;font-weight:800;color:var(--acc);letter-spacing:-2px;}
+.clock-date{font-size:13px;color:var(--mut);margin-top:4px;}
+label{display:block;font-size:11px;color:var(--mut);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;}
+select{width:100%;background:var(--sur2);border:1px solid var(--bor);border-radius:10px;padding:14px 16px;color:var(--txt);font-family:var(--fb);font-size:16px;margin-bottom:20px;-webkit-appearance:none;}
+select:focus{outline:none;border-color:var(--acc);}
+.btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.btn{padding:16px;border-radius:12px;border:none;font-family:var(--fh);font-weight:700;font-size:14px;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.btn-full{grid-column:1/-1;}
+.btn-entrada{background:#1a3d2e;color:var(--acc2);border:2px solid var(--acc2);}
+.btn-entrada:hover{background:var(--acc2);color:#0f1117;}
+.btn-saida-int{background:#3d3000;color:var(--acc);border:2px solid var(--acc);}
+.btn-saida-int:hover{background:var(--acc);color:#0f1117;}
+.btn-volta-int{background:#1a2e3d;color:#60b4ff;border:2px solid #60b4ff;}
+.btn-volta-int:hover{background:#60b4ff;color:#0f1117;}
+.btn-saida{background:#3d1a1a;color:var(--acc3);border:2px solid var(--acc3);}
+.btn-saida:hover{background:var(--acc3);color:#fff;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-icon{font-size:24px;}
+.btn-label{font-size:12px;}
+.status-box{background:var(--sur2);border:1px solid var(--bor);border-radius:12px;padding:16px;margin-top:4px;}
+.status-title{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;}
+.status-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bor);font-size:13px;}
+.status-row:last-child{border-bottom:none;}
+.status-label{color:var(--mut);}
+.status-val{font-weight:700;}
+.status-val.ok{color:var(--acc2);}
+.status-val.late{color:var(--acc3);}
+.status-val.early{color:var(--acc);}
+.saldo-box{margin-top:12px;padding:12px 16px;border-radius:10px;text-align:center;}
+.saldo-box.pos{background:#1a3d2e;border:1px solid var(--acc2);}
+.saldo-box.neg{background:#3d1a1a;border:1px solid var(--acc3);}
+.saldo-box.zero{background:var(--sur2);border:1px solid var(--bor);}
+.saldo-label{font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
+.saldo-val{font-family:var(--fh);font-size:28px;font-weight:800;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--acc2);color:#0f1117;padding:12px 24px;border-radius:12px;font-weight:700;font-size:14px;z-index:999;white-space:nowrap;}
+.historico{margin-top:8px;}
+.hist-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--bor);font-size:12px;}
+.hist-item:last-child{border-bottom:none;}
+.tipo-badge{padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;}
+.t-entrada{background:#1a3d2e;color:var(--acc2);}
+.t-saida-int{background:#3d3000;color:var(--acc);}
+.t-volta-int{background:#1a2e3d;color:#60b4ff;}
+.t-saida{background:#3d1a1a;color:var(--acc3);}
+.loading{text-align:center;padding:40px;color:var(--mut);}
+</style>
+</head>
+<body>
+<div class="logo">
+  <div class="logo-box">SY</div>
+  <div><div class="logo-title">Smash You</div><div class="logo-sub">Registro de Ponto</div></div>
+</div>
+
+<div class="card">
+  <div class="clock">
+    <div class="clock-time" id="clock">00:00:00</div>
+    <div class="clock-date" id="date"></div>
+  </div>
+
+  <label>Funcionário</label>
+  <select id="func-select">
+    <option value="">Selecione seu nome...</option>
+  </select>
+
+  <div class="btn-grid">
+    <button class="btn btn-entrada" onclick="registrar('entrada')" id="btn-entrada">
+      <span class="btn-icon">🟢</span>
+      <span>Entrada</span>
+      <span class="btn-label">17:00</span>
+    </button>
+    <button class="btn btn-saida-int" onclick="registrar('saida_intervalo')" id="btn-saida-int">
+      <span class="btn-icon">⏸️</span>
+      <span>Intervalo</span>
+      <span class="btn-label">Saída</span>
+    </button>
+    <button class="btn btn-volta-int" onclick="registrar('volta_intervalo')" id="btn-volta-int">
+      <span class="btn-icon">▶️</span>
+      <span>Intervalo</span>
+      <span class="btn-label">Volta</span>
+    </button>
+    <button class="btn btn-saida" onclick="registrar('saida')" id="btn-saida">
+      <span class="btn-icon">🔴</span>
+      <span>Saída</span>
+      <span class="btn-label">23:20</span>
+    </button>
+  </div>
+</div>
+
+<div class="card" id="status-card" style="display:none">
+  <div class="status-title">📊 Resumo de hoje</div>
+  <div id="status-content"></div>
+  <div id="saldo-semana"></div>
+</div>
+
+<div class="card" id="hist-card" style="display:none">
+  <div class="status-title">🕐 Histórico de hoje</div>
+  <div class="historico" id="hist-content"></div>
+</div>
+
+<div id="toast" class="toast" style="display:none"></div>
+
+<script>
+const SUPA_URL = "https://bhrfmztoqvetfmeblogu.supabase.co";
+const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJocmZtenRvcXZldGZtZWJsb2d1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxNjQ5NjQsImV4cCI6MjA5NDc0MDk2NH0.fyDQqCyqSRdj_qsP1aliEOSpWIGaGvrjYGCU5QevRn8";
+const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+const ENTRADA_H = 17, ENTRADA_M = 0;
+const SAIDA_H = 23, SAIDA_M = 20;
+const INTERVALO_MAX = 20; // minutos
+
+// Relógio
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const s = String(now.getSeconds()).padStart(2,'0');
+  document.getElementById('clock').textContent = `${h}:${m}:${s}`;
+  const dias = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  document.getElementById('date').textContent = `${dias[now.getDay()]}, ${now.getDate()} ${meses[now.getMonth()]} ${now.getFullYear()}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+function showToast(msg, erro=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = erro ? 'var(--acc3)' : 'var(--acc2)';
+  t.style.color = erro ? '#fff' : '#0f1117';
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 3000);
+}
+
+function toMin(h, m) { return h * 60 + m; }
+function formatHora(ts) {
+  const d = new Date(ts);
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function diffMin(ts1, ts2) {
+  return Math.round((new Date(ts2) - new Date(ts1)) / 60000);
+}
+
+// Pegar semana ativa
+async function getSemanaAtiva() {
+  const { data } = await sb.from('semanas').select('id,periodo').order('created_at', { ascending: false }).limit(1).single();
+  return data;
+}
+
+// Pegar registros de hoje do funcionário
+async function getRegistrosHoje(funcId, semanaId) {
+  const hoje = new Date();
+  const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()).toISOString();
+  const fim = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + 1).toISOString();
+  const { data } = await sb.from('ponto')
+    .select('*')
+    .eq('funcionario_id', funcId)
+    .eq('semana_id', semanaId)
+    .gte('horario', inicio)
+    .lt('horario', fim)
+    .order('horario', { ascending: true });
+  return data || [];
+}
+
+// Calcular saldo da semana
+async function getSaldoSemana(funcId, semanaId) {
+  const { data } = await sb.from('ponto')
+    .select('*')
+    .eq('funcionario_id', funcId)
+    .eq('semana_id', semanaId)
+    .order('horario', { ascending: true });
+  return calcularSaldo(data || []);
+}
+
+function calcularSaldo(registros) {
+  let saldo = 0; // positivo = crédito, negativo = débito
+
+  // Agrupar por dia
+  const porDia = {};
+  registros.forEach(r => {
+    const dia = new Date(r.horario).toDateString();
+    if (!porDia[dia]) porDia[dia] = [];
+    porDia[dia].push(r);
+  });
+
+  Object.values(porDia).forEach(regs => {
+    const entrada = regs.find(r => r.tipo === 'entrada');
+    const saidaInt = regs.find(r => r.tipo === 'saida_intervalo');
+    const voltaInt = regs.find(r => r.tipo === 'volta_intervalo');
+    const saida = regs.find(r => r.tipo === 'saida');
+
+    if (entrada) {
+      const entH = new Date(entrada.horario);
+      const entMin = toMin(entH.getHours(), entH.getMinutes());
+      const esperadoMin = toMin(ENTRADA_H, ENTRADA_M);
+      saldo += esperadoMin - entMin; // positivo se chegou cedo, negativo se atrasou
+    }
+
+    if (saidaInt && voltaInt) {
+      const duracaoInt = diffMin(saidaInt.horario, voltaInt.horario);
+      const excesso = duracaoInt - INTERVALO_MAX;
+      if (excesso > 0) saldo -= excesso; // passou do intervalo = débito
+      if (excesso < 0) saldo += Math.abs(excesso); // intervalo curto = crédito
+    }
+
+    if (saida) {
+      const saidaH = new Date(saida.horario);
+      const saidaMin = toMin(saidaH.getHours(), saidaH.getMinutes());
+      const esperadoMin = toMin(SAIDA_H, SAIDA_M);
+      saldo += saidaMin - esperadoMin; // positivo se saiu depois, negativo se saiu antes
+    }
+  });
+
+  return saldo;
+}
+
+async function carregarFuncionarios() {
+  const funcSelect = document.getElementById('func-select');
+  const { data } = await sb.from('funcionarios_config').select('*').order('ordem');
+  if (data && data.length > 0) {
+    funcSelect.innerHTML = '<option value="">Selecione seu nome...</option>';
+    data.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f.id;
+      opt.textContent = f.nome;
+      funcSelect.appendChild(opt);
+    });
+  }
+}
+
+async function registrar(tipo) {
+  const funcSelect = document.getElementById('func-select');
+  const funcId = funcSelect.value;
+  const funcNome = funcSelect.options[funcSelect.selectedIndex].text;
+
+  if (!funcId) { showToast('Selecione seu nome!', true); return; }
+
+  const semana = await getSemanaAtiva();
+  if (!semana) { showToast('Nenhuma semana ativa!', true); return; }
+
+  const agora = new Date();
+  const agoraMin = toMin(agora.getHours(), agora.getMinutes());
+
+  // Salvar com offset local (Brasil UTC-3)
+  const offset = agora.getTimezoneOffset();
+  const localISO = new Date(agora.getTime() - offset * 60000).toISOString().slice(0, -1) + 
+    (offset <= 0 ? '+' : '-') + 
+    String(Math.floor(Math.abs(offset)/60)).padStart(2,'0') + ':' + 
+    String(Math.abs(offset)%60).padStart(2,'0');
+
+  // Calcular minutos relativos ao tipo
+  let minutos = 0;
+  if (tipo === 'entrada') {
+    minutos = toMin(ENTRADA_H, ENTRADA_M) - agoraMin;
+  } else if (tipo === 'saida') {
+    minutos = agoraMin - toMin(SAIDA_H, SAIDA_M);
+  }
+
+  const { error } = await sb.from('ponto').insert({
+    semana_id: semana.id,
+    funcionario_id: funcId,
+    funcionario_nome: funcNome,
+    tipo,
+    horario: localISO,
+    minutos
+  });
+
+  if (error) { showToast('Erro ao registrar!', true); return; }
+
+  const labels = {
+    entrada: '✅ Entrada registrada!',
+    saida_intervalo: '⏸️ Intervalo iniciado!',
+    volta_intervalo: '▶️ Volta do intervalo registrada!',
+    saida: '🔴 Saída registrada!'
+  };
+  showToast(labels[tipo]);
+
+  // Atualizar saldo na folha
+  const saldo = await getSaldoSemana(funcId, semana.id);
+  const minutosAtraso = saldo < 0 ? Math.abs(saldo) : 0;
+  
+  // Buscar folha existente
+  const { data: folhaExist } = await sb.from('folha')
+    .select('id')
+    .eq('semana_id', semana.id)
+    .eq('funcionario_id', funcId)
+    .single();
+
+  if (folhaExist) {
+    await sb.from('folha').update({ minutos_atraso: minutosAtraso }).eq('id', folhaExist.id);
+  } else {
+    await sb.from('folha').insert({ semana_id: semana.id, funcionario_id: funcId, funcionario_nome: funcNome, minutos_atraso: minutosAtraso });
+  }
+
+  await atualizarStatus(funcId, semana.id);
+}
+
+async function atualizarStatus(funcId, semanaId) {
+  const registros = await getRegistrosHoje(funcId, semanaId);
+  const saldo = await getSaldoSemana(funcId, semanaId);
+
+  // Status card
+  const statusCard = document.getElementById('status-card');
+  const statusContent = document.getElementById('status-content');
+  const saldoSemana = document.getElementById('saldo-semana');
+  statusCard.style.display = 'block';
+
+  let html = '';
+  const entrada = registros.find(r => r.tipo === 'entrada');
+  const saidaInt = registros.find(r => r.tipo === 'saida_intervalo');
+  const voltaInt = registros.find(r => r.tipo === 'volta_intervalo');
+  const saida = registros.find(r => r.tipo === 'saida');
+
+  if (entrada) {
+    const entH = new Date(entrada.horario);
+    const entMin = toMin(entH.getHours(), entH.getMinutes());
+    const esperado = toMin(ENTRADA_H, ENTRADA_M);
+    const diff = esperado - entMin;
+    const cls = diff > 0 ? 'early' : diff < 0 ? 'late' : 'ok';
+    const txt = diff > 0 ? `${diff} min adiantado` : diff < 0 ? `${Math.abs(diff)} min atrasado` : 'No horário';
+    html += `<div class="status-row"><span class="status-label">Entrada</span><span>${formatHora(entrada.horario)}</span><span class="status-val ${cls}">${txt}</span></div>`;
+  }
+
+  if (saidaInt) {
+    html += `<div class="status-row"><span class="status-label">Saída intervalo</span><span class="status-val">${formatHora(saidaInt.horario)}</span></div>`;
+  }
+
+  if (voltaInt && saidaInt) {
+    const dur = diffMin(saidaInt.horario, voltaInt.horario);
+    const excesso = dur - INTERVALO_MAX;
+    const cls = excesso > 0 ? 'late' : 'ok';
+    html += `<div class="status-row"><span class="status-label">Volta intervalo</span><span>${formatHora(voltaInt.horario)}</span><span class="status-val ${cls}">${dur} min ${excesso > 0 ? `(+${excesso} min)` : ''}</span></div>`;
+  }
+
+  if (saida) {
+    const saidaH = new Date(saida.horario);
+    const saidaMin = toMin(saidaH.getHours(), saidaH.getMinutes());
+    const esperado = toMin(SAIDA_H, SAIDA_M);
+    const diff = saidaMin - esperado;
+    const cls = diff >= 0 ? 'early' : 'late';
+    const txt = diff > 0 ? `${diff} min a mais` : diff < 0 ? `${Math.abs(diff)} min antes` : 'No horário';
+    html += `<div class="status-row"><span class="status-label">Saída</span><span>${formatHora(saida.horario)}</span><span class="status-val ${cls}">${txt}</span></div>`;
+  }
+
+  statusContent.innerHTML = html || '<div style="color:var(--mut);font-size:13px">Nenhum registro hoje ainda.</div>';
+
+  // Saldo da semana
+  const cls = saldo > 0 ? 'pos' : saldo < 0 ? 'neg' : 'zero';
+  const saldoLabel = saldo > 0 ? `+${saldo} min de crédito` : saldo < 0 ? `${Math.abs(saldo)} min de débito` : 'Sem pendências';
+  const saldoColor = saldo > 0 ? 'var(--acc2)' : saldo < 0 ? 'var(--acc3)' : 'var(--mut)';
+  saldoSemana.innerHTML = `
+    <div class="saldo-box ${cls}" style="margin-top:12px">
+      <div class="saldo-label" style="color:${saldoColor}">Saldo da semana</div>
+      <div class="saldo-val" style="color:${saldoColor}">${saldoLabel}</div>
+    </div>`;
+
+  // Histórico
+  const histCard = document.getElementById('hist-card');
+  const histContent = document.getElementById('hist-content');
+  histCard.style.display = 'block';
+
+  const tipoLabels = {
+    entrada: ['t-entrada', 'Entrada'],
+    saida_intervalo: ['t-saida-int', 'Saída intervalo'],
+    volta_intervalo: ['t-volta-int', 'Volta intervalo'],
+    saida: ['t-saida', 'Saída']
+  };
+
+  histContent.innerHTML = registros.length === 0
+    ? '<div style="color:var(--mut);font-size:13px">Nenhum registro hoje.</div>'
+    : registros.map(r => {
+        const [cls, label] = tipoLabels[r.tipo] || ['', r.tipo];
+        return `<div class="hist-item"><span class="tipo-badge ${cls}">${label}</span><span>${formatHora(r.horario)}</span></div>`;
+      }).join('');
+}
+
+// Ao selecionar funcionário, carrega status
+document.getElementById('func-select').addEventListener('change', async function() {
+  if (!this.value) return;
+  const semana = await getSemanaAtiva();
+  if (semana) await atualizarStatus(this.value, semana.id);
+});
+
+// Inicializar quando página carregar
+window.onload = function() { carregarFuncionarios(); };
+</script>
+</body>
+</html>

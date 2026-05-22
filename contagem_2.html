@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Smash You — Contagem</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f1117;--sur:#181c27;--sur2:#1e2333;--bor:#2a2f42;--acc:#f0c040;--acc2:#3ecf8e;--acc3:#e05c5c;--txt:#e8eaf0;--mut:#7a8099;--fh:'Syne',sans-serif;--fb:'DM Sans',sans-serif;}
+body{background:var(--bg);color:var(--txt);font-family:var(--fb);min-height:100vh;}
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.login-box{background:var(--sur);border:1px solid var(--bor);border-radius:16px;padding:32px;width:100%;max-width:380px;}
+.logo{display:flex;align-items:center;gap:12px;margin-bottom:28px;justify-content:center;}
+.logo-box{width:44px;height:44px;background:var(--acc);border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:var(--fh);font-weight:800;font-size:16px;color:#0f1117;}
+.logo-title{font-family:var(--fh);font-size:18px;font-weight:800;}
+.logo-sub{font-size:11px;color:var(--mut);}
+h2{font-family:var(--fh);font-size:20px;font-weight:800;margin-bottom:20px;text-align:center;}
+label{display:block;font-size:11px;color:var(--mut);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;}
+input,select{width:100%;background:var(--sur2);border:1px solid var(--bor);border-radius:8px;padding:10px 14px;color:var(--txt);font-family:var(--fb);font-size:14px;margin-bottom:14px;}
+input:focus,select:focus{outline:none;border-color:var(--acc);}
+.btn{width:100%;padding:12px;border-radius:8px;border:none;font-family:var(--fb);font-weight:700;font-size:14px;cursor:pointer;}
+.btn-primary{background:var(--acc);color:#0f1117;}
+.btn-ghost{background:var(--sur2);color:var(--txt);border:1px solid var(--bor);margin-top:8px;}
+.err{color:var(--acc3);font-size:13px;text-align:center;margin-bottom:10px;}
+.app{max-width:700px;margin:0 auto;padding:20px 14px 60px;}
+.hdr{display:flex;align-items:center;gap:12px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--bor);}
+.hdr-logo{width:40px;height:40px;background:var(--acc);border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:var(--fh);font-weight:800;font-size:15px;color:#0f1117;}
+.hdr-title{font-family:var(--fh);font-size:17px;font-weight:800;}
+.hdr-sub{font-size:11px;color:var(--mut);}
+.sp{flex:1;}
+.tipo-sel{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;}
+.tipo-btn{padding:16px;border-radius:12px;border:2px solid var(--bor);background:var(--sur);cursor:pointer;text-align:center;}
+.tipo-btn.active{border-color:var(--acc);background:#3d3000;}
+.tipo-btn h3{font-family:var(--fh);font-size:14px;font-weight:700;margin-bottom:4px;}
+.tipo-btn p{font-size:11px;color:var(--mut);}
+.tipo-btn.active h3{color:var(--acc);}
+.forn-card{background:var(--sur);border:1px solid var(--bor);border-radius:12px;margin-bottom:12px;overflow:hidden;}
+.forn-hdr{padding:12px 16px;background:var(--sur2);display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
+.forn-nome{font-family:var(--fh);font-size:13px;font-weight:700;color:var(--acc);}
+.forn-body{padding:12px 16px;}
+.item-row{display:grid;grid-template-columns:1fr 90px 60px 55px 30px;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bor);}
+.item-row:last-child{border-bottom:none;}
+.item-nome{font-size:13px;}
+.item-tipo{font-size:10px;color:var(--mut);margin-top:2px;}
+.inp-cont{background:var(--sur2);border:1px solid var(--bor);border-radius:7px;padding:7px 10px;color:var(--txt);font-size:13px;text-align:right;width:100%;}
+.inp-cont:focus{outline:none;border-color:var(--acc);}
+.col-hdr{display:grid;grid-template-columns:1fr 90px 60px 55px 30px;gap:8px;padding:6px 0;margin-bottom:4px;border-bottom:1px solid var(--bor);}
+.col-hdr span{font-size:10px;color:var(--mut);font-weight:700;text-transform:uppercase;}
+.comprar-badge{font-size:11px;font-weight:700;color:var(--acc3);text-align:center;}
+.ok-badge{font-size:11px;color:var(--acc2);text-align:center;}
+.btn-salvar{margin-top:16px;padding:14px;border-radius:10px;border:none;background:var(--acc);color:#0f1117;font-family:var(--fb);font-weight:700;font-size:14px;cursor:pointer;width:100%;}
+.btn-atualizar{margin-top:8px;padding:10px;border-radius:10px;border:1px solid var(--bor);background:var(--sur2);color:var(--txt);font-family:var(--fb);font-weight:600;font-size:13px;cursor:pointer;width:100%;}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--acc2);color:#0f1117;padding:10px 20px;border-radius:10px;font-weight:700;font-size:13px;z-index:999;}
+.loading{text-align:center;padding:40px;color:var(--mut);}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;}
+.bg2{background:#1a3d2e;color:var(--acc2);}
+.log-card{background:var(--sur2);border:1px solid var(--bor);border-radius:10px;padding:14px;margin-bottom:16px;}
+.log-title{font-family:var(--fh);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--acc);margin-bottom:10px;}
+.log-item{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bor);font-size:12px;}
+.log-item:last-child{border-bottom:none;}
+</style>
+</head>
+<body>
+<div id="login-screen" class="login-wrap">
+  <div class="login-box">
+    <div class="logo">
+      <div class="logo-box">SY</div>
+      <div><div class="logo-title">Smash You</div><div class="logo-sub">Contagem de Estoque</div></div>
+    </div>
+    <h2>Acesso</h2>
+    <div id="login-err" class="err" style="display:none"></div>
+    <div><label>Usuário</label><input type="text" id="login-user" placeholder="Ex: matheus.h"/></div>
+    <div><label>Senha</label><input type="password" id="login-pass" placeholder="Senha"/></div>
+    <button class="btn btn-primary" onclick="fazerLogin()">Entrar</button>
+  </div>
+</div>
+
+<div id="app-screen" style="display:none">
+  <div class="app">
+    <div class="hdr">
+      <div class="hdr-logo">SY</div>
+      <div><div class="hdr-title">Contagem de Estoque</div><div class="hdr-sub" id="user-nome"></div></div>
+      <div class="sp"></div>
+      <button class="btn-ghost" style="padding:6px 12px;border-radius:7px;border:1px solid var(--bor);background:var(--sur2);color:var(--mut);font-size:12px;cursor:pointer;" onclick="sair()">Sair</button>
+    </div>
+
+    <div id="log-salvamentos" class="log-card" style="display:none">
+      <div class="log-title">📋 Últimos salvamentos</div>
+      <div id="log-lista"></div>
+    </div>
+
+    <div class="tipo-sel">
+      <div class="tipo-btn active" id="btn-semanal" onclick="setTipo('semanal')">
+        <h3>📦 Semanal</h3>
+        <p>Todos os itens do estoque</p>
+      </div>
+      <div class="tipo-btn" id="btn-diaria" onclick="setTipo('diaria')">
+        <h3>🛒 Diária</h3>
+        <p>Itens do mercado</p>
+      </div>
+    </div>
+
+    <div id="contagem-content"><div class="loading">Carregando itens...</div></div>
+
+    <button class="btn-salvar" onclick="salvarTudo()">💾 Salvar Contagem</button>
+    <button class="btn-atualizar" onclick="atualizar()">🔄 Atualizar</button>
+  </div>
+</div>
+
+<div id="toast" class="toast" style="display:none"></div>
+
+<script>
+const SUPA_URL="https://bhrfmztoqvetfmeblogu.supabase.co";
+const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJocmZtenRvcXZldGZtZWJsb2d1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxNjQ5NjQsImV4cCI6MjA5NDc0MDk2NH0.fyDQqCyqSRdj_qsP1aliEOSpWIGaGvrjYGCU5QevRn8";
+const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
+
+const ITENS_DIARIOS=[
+  {forn:"Mercado",itens:[
+    {nome:"Pão",tipo:"un",min:50},{nome:"Blend/Carne",tipo:"peso",min:3000},
+    {nome:"Frango",tipo:"un",min:10},{nome:"Batata",tipo:"peso",min:5000},
+    {nome:"Alface",tipo:"un",min:10},{nome:"Picles",tipo:"un",min:5},
+    {nome:"Cebola",tipo:"peso",min:2000},{nome:"Cebola Roxa",tipo:"peso",min:1000},
+    {nome:"Tomate",tipo:"peso",min:2000},{nome:"Cebola Caramelizada",tipo:"peso",min:500},
+    {nome:"Geleia de Pimenta",tipo:"un",min:2},{nome:"Bacon",tipo:"un",min:5},
+    {nome:"Maionese",tipo:"peso",min:500},{nome:"Ketchup",tipo:"peso",min:500},
+    {nome:"Mostarda",tipo:"peso",min:300},{nome:"Queijo",tipo:"peso",min:1000},
+    {nome:"Coca Cola Original",tipo:"un",min:24},{nome:"Coca Cola Zero",tipo:"un",min:12},
+    {nome:"Guaraná / Itubaina",tipo:"un",min:12},{nome:"Suco",tipo:"un",min:6},
+    {nome:"Água c/ Gás",tipo:"un",min:6},{nome:"Água s/ Gás",tipo:"un",min:6},
+    {nome:"Alumínio",tipo:"un",min:30},{nome:"Papel Descartável",tipo:"un",min:1},
+    {nome:"Saco Freezer",tipo:"un",min:1},{nome:"Embalagem Batata Total",tipo:"un",min:50},
+    {nome:"Embalagem Classic",tipo:"un",min:20},{nome:"Sal",tipo:"un",min:1},
+    {nome:"Veja",tipo:"un",min:1},{nome:"Detergente",tipo:"un",min:1},{nome:"Bucha",tipo:"un",min:1},
+  ]}
+];
+
+let usuarioLogado=null;
+let tipoContagem='semanal';
+let fornecedores={};
+let fornMinimos={};
+let semanaAtiva=null;
+let valoresContagem={};
+let salvamentos=[];
+
+async function fazerLogin(){
+  const user=document.getElementById('login-user').value.trim();
+  const pass=document.getElementById('login-pass').value.trim();
+  const {data,error}=await sb.from('usuarios').select('*').eq('usuario',user).eq('senha',pass).single();
+  if(error||!data){
+    document.getElementById('login-err').style.display='block';
+    document.getElementById('login-err').textContent='Usuário ou senha incorretos.';
+    return;
+  }
+  usuarioLogado=data;
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app-screen').style.display='block';
+  document.getElementById('user-nome').textContent=`Olá, ${data.nome}`;
+  await init();
+}
+
+async function init(){
+  const {data:fData}=await sb.from('fornecedores_config').select('*').order('fornecedor');
+  if(fData){
+    fornecedores={};fornMinimos={};
+    fData.forEach(r=>{
+      if(!fornecedores[r.fornecedor])fornecedores[r.fornecedor]=[];
+      fornecedores[r.fornecedor].push({nome:r.item,tipo:r.tipo||'un',fator:r.fator||1,min:r.min||0});
+      fornMinimos[`${r.fornecedor}__${r.item}`]=r.min||0;
+    });
+  }
+  const {data:sData}=await sb.from('semanas').select('*').order('created_at',{ascending:false}).limit(1).single();
+  semanaAtiva=sData;
+  if(semanaAtiva){
+    const {data:cData}=await sb.from('contagem').select('*').eq('semana_id',semanaAtiva.id);
+    (cData||[]).forEach(r=>{valoresContagem[`${r.fornecedor}__${r.item}`]=r.estoque;});
+  }
+  await carregarLogs();
+  renderContagem();
+}
+
+async function atualizar(){
+  showToast('Atualizando...');
+  valoresContagem={};
+  if(semanaAtiva){
+    const {data:cData}=await sb.from('contagem').select('*').eq('semana_id',semanaAtiva.id);
+    (cData||[]).forEach(r=>{valoresContagem[`${r.fornecedor}__${r.item}`]=r.estoque;});
+  }
+  await carregarLogs();
+  renderContagem();
+  showToast('✅ Atualizado!');
+}
+
+async function carregarLogs(){
+  const {data}=await sb.from('contagem_logs').select('*').order('created_at',{ascending:false}).limit(5);
+  salvamentos=data||[];
+  renderLogs();
+}
+
+function renderLogs(){
+  const logDiv=document.getElementById('log-salvamentos');
+  const logLista=document.getElementById('log-lista');
+  if(salvamentos.length===0){logDiv.style.display='none';return;}
+  logDiv.style.display='block';
+  logLista.innerHTML=salvamentos.map(s=>{
+    const dt=new Date(s.created_at);
+    const dtStr=`${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+    return `<div class="log-item">
+      <span>📅 ${dtStr}</span>
+      <span style="color:var(--acc2);font-weight:600">👤 ${s.usuario}</span>
+      <span class="badge bg2">${s.tipo}</span>
+    </div>`;
+  }).join('');
+}
+
+function setTipo(tipo){
+  tipoContagem=tipo;
+  document.getElementById('btn-semanal').className='tipo-btn'+(tipo==='semanal'?' active':'');
+  document.getElementById('btn-diaria').className='tipo-btn'+(tipo==='diaria'?' active':'');
+  renderContagem();
+}
+
+function calcComprar(min,estoque){
+  const diff=Math.max(0,Number(min)-Number(estoque||0));
+  return diff>0?diff:0;
+}
+
+function renderContagem(){
+  const cont=document.getElementById('contagem-content');
+  const lista=tipoContagem==='semanal'
+    ?Object.entries(fornecedores)
+    :ITENS_DIARIOS.map(f=>[f.forn,f.itens]);
+
+  if(!lista||lista.length===0){cont.innerHTML='<div class="loading">Nenhum item encontrado.</div>';return;}
+
+  cont.innerHTML=lista.map(([forn,itens])=>`
+    <div class="forn-card">
+      <div class="forn-hdr" onclick="toggleForn('${forn.replace(/'/g,"\\'")}')">
+        <span class="forn-nome">🏪 ${forn}</span>
+        <span id="arr-${btoa(unescape(encodeURIComponent(forn))).replace(/[^a-z0-9]/gi,'')}" style="color:var(--mut)">▼</span>
+      </div>
+      <div class="forn-body" id="body-${btoa(unescape(encodeURIComponent(forn))).replace(/[^a-z0-9]/gi,'')}">
+        <div class="col-hdr">
+          <span>Item</span>
+          <span style="text-align:right">Estoque</span>
+          <span style="text-align:center">Mínimo</span>
+          <span style="text-align:center">Comprar</span>
+          <span></span>
+        </div>
+        ${itens.map(item=>{
+          const key=`${forn}__${item.nome}`;
+          const val=valoresContagem[key]||'';
+          const min=item.min||0;
+          const comprar=calcComprar(min,val);
+          const unid=item.tipo==='peso'?'g':'un';
+          return `<div class="item-row">
+            <div><div class="item-nome">${item.nome}</div><div class="item-tipo">${item.tipo==='peso'?'Peso (g)':'Unidades'}</div></div>
+            <input class="inp-cont" type="number" min="0" 
+              value="${val}" placeholder="0"
+              data-forn="${forn}" data-item="${item.nome}" data-min="${min}"
+              oninput="onInput(this)" id="inp-${key.replace(/[^a-z0-9]/gi,'_')}"/>
+            <div style="text-align:center;font-size:12px;color:var(--mut)">${min} ${unid}</div>
+            <div id="comp-${key.replace(/[^a-z0-9]/gi,'_')}" style="text-align:center" class="${comprar>0?'comprar-badge':'ok-badge'}">${comprar>0?'▲ '+comprar+' '+unid:'OK'}</div>
+            <span id="ok-${key.replace(/[^a-z0-9]/gi,'_')}" style="font-size:11px;color:var(--acc2);text-align:center"></span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleForn(forn){
+  const id=`body-${btoa(unescape(encodeURIComponent(forn))).replace(/[^a-z0-9]/gi,'')}`;
+  const arrId=`arr-${btoa(unescape(encodeURIComponent(forn))).replace(/[^a-z0-9]/gi,'')}`;
+  const el=document.getElementById(id);
+  const arr=document.getElementById(arrId);
+  if(el){el.style.display=el.style.display==='none'?'block':'none';if(arr)arr.textContent=el.style.display==='none'?'▶':'▼';}
+}
+
+function onInput(el){
+  const forn=el.dataset.forn;
+  const item=el.dataset.item;
+  const min=Number(el.dataset.min)||0;
+  const key=`${forn}__${item}`;
+  valoresContagem[key]=el.value;
+  const comprar=calcComprar(min,el.value);
+  const compEl=document.getElementById(`comp-${key.replace(/[^a-z0-9]/gi,'_')}`);
+  const unid=el.closest('.item-row').querySelector('.item-tipo').textContent.includes('g')?'g':'un';
+  if(compEl){
+    compEl.textContent=comprar>0?'▲ '+comprar+' '+unid:'OK';
+    compEl.className=comprar>0?'comprar-badge':'ok-badge';
+  }
+  const okEl=document.getElementById(`ok-${key.replace(/[^a-z0-9]/gi,'_')}`);
+  if(okEl)okEl.textContent='';
+}
+
+async function salvarTudo(){
+  showToast('Salvando...');
+  const agora=new Date();
+  const dataHora=`${String(agora.getDate()).padStart(2,'0')}/${String(agora.getMonth()+1).padStart(2,'0')}/${agora.getFullYear()} ${String(agora.getHours()).padStart(2,'0')}:${String(agora.getMinutes()).padStart(2,'0')}`;
+
+  if(tipoContagem==='semanal'&&semanaAtiva){
+    const upserts=Object.entries(valoresContagem).map(([key,val])=>{
+      const [forn,...itemParts]=key.split('__');
+      const item=itemParts.join('__');
+      return{semana_id:semanaAtiva.id,fornecedor:forn,item,estoque:Number(val)||0};
+    });
+    if(upserts.length>0){
+      await sb.from('contagem').upsert(upserts,{onConflict:'semana_id,fornecedor,item'});
+    }
+  } else {
+    const hoje=new Date().toISOString().split('T')[0];
+    const upserts=Object.entries(valoresContagem).map(([key,val])=>{
+      const parts=key.split('__');
+      const item=parts.slice(1).join('__');
+      const tipo=ITENS_DIARIOS[0].itens.find(i=>i.nome===item)?.tipo||'un';
+      return{data:hoje,item,quantidade:Number(val)||0,tipo_item:tipo};
+    }).filter(u=>u.quantidade>0);
+    if(upserts.length>0){
+      await sb.from('contagem_diaria').upsert(upserts,{onConflict:'data,item'});
+    }
+  }
+
+  // Salvar log
+  try{
+    await sb.from('contagem_logs').insert({
+      usuario:usuarioLogado.nome,
+      tipo:tipoContagem==='semanal'?'Semanal':'Diária',
+      data_hora:agora.toISOString()
+    });
+  }catch(e){console.log('Log não salvo:',e);}
+
+  await carregarLogs();
+  showToast(`✅ Salvo em ${dataHora} por ${usuarioLogado.nome}`);
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.style.display='block';
+  setTimeout(()=>t.style.display='none',3000);
+}
+
+function sair(){
+  usuarioLogado=null;
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('app-screen').style.display='none';
+  document.getElementById('login-user').value='';
+  document.getElementById('login-pass').value='';
+}
+
+window.onload=()=>{
+  document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')fazerLogin();});
+};
+</script>
+</body>
+</html>

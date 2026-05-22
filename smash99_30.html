@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Smash You — Gestão</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect}=React;
+const {createClient}=supabase;
+const SUPA_URL="https://bhrfmztoqvetfmeblogu.supabase.co";
+const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJocmZtenRvcXZldGZtZWJsb2d1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxNjQ5NjQsImV4cCI6MjA5NDc0MDk2NH0.fyDQqCyqSRdj_qsP1aliEOSpWIGaGvrjYGCU5QevRn8";
+const sb=createClient(SUPA_URL,SUPA_KEY);
+window._sb=sb;
+
+const FIXOS_SEMANA=[
+  {label:"Aluguel",valor:565},{label:"Contador",valor:210},{label:"Sistema",valor:210},
+  {label:"Luz",valor:225},{label:"Água",valor:34.25},{label:"Gás",valor:126},
+];
+
+const fmt=(v)=>Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+const num=(v)=>Number(v||0);
+const calcBonus=(p)=>{if(p<600)return 0;return 75+Math.floor((p-600)/100)*25;};
+function calcComprar(item,estoque){
+  const diff=Math.max(0,num(item.min)-num(estoque));
+  if(diff===0)return 0;
+  return Math.ceil(diff/num(item.fator));
+}
+
+const ITENS_DIARIOS=[{forn:"Mercado",itens:[
+  {nome:"Pão",tipo:"un",min:50},{nome:"Blend/Carne",tipo:"peso",min:3000},
+  {nome:"Frango",tipo:"un",min:10},{nome:"Batata",tipo:"peso",min:5000},
+  {nome:"Alface",tipo:"un",min:10},{nome:"Picles",tipo:"un",min:5},
+  {nome:"Cebola",tipo:"peso",min:2000},{nome:"Cebola Roxa",tipo:"peso",min:1000},
+  {nome:"Tomate",tipo:"peso",min:2000},{nome:"Queijo",tipo:"peso",min:1000},
+  {nome:"Coca Cola Original",tipo:"un",min:24},{nome:"Coca Cola Zero",tipo:"un",min:12},
+  {nome:"Guaraná / Itubaina",tipo:"un",min:12},{nome:"Suco",tipo:"un",min:6},
+  {nome:"Água s/ Gás",tipo:"un",min:6},{nome:"Embalagem Batata Total",tipo:"un",min:50},
+]}];
+
+const css=`
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f1117;--sur:#181c27;--sur2:#1e2333;--bor:#2a2f42;--acc:#f0c040;--acc2:#3ecf8e;--acc3:#e05c5c;--txt:#e8eaf0;--mut:#7a8099;--fh:'Syne',sans-serif;--fb:'DM Sans',sans-serif;--r:12px}
+body{background:var(--bg);color:var(--txt);font-family:var(--fb);font-size:14px;min-height:100vh}
+.app{max-width:1140px;margin:0 auto;padding:20px 14px 60px}
+.hdr{display:flex;align-items:center;gap:14px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--bor)}
+.logo{width:42px;height:42px;background:var(--acc);border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:var(--fh);font-weight:800;font-size:16px;color:var(--bg)}
+.ttl{font-family:var(--fh);font-size:19px;font-weight:800}
+.sub{font-size:11px;color:var(--mut);margin-top:2px}
+.sp{flex:1}
+.tabs{display:flex;gap:3px;margin-bottom:20px;background:var(--sur);padding:4px;border-radius:var(--r);flex-wrap:wrap}
+.tab{padding:8px 14px;border-radius:9px;border:none;background:transparent;color:var(--mut);font-family:var(--fb);font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;white-space:nowrap}
+.tab.on{background:var(--acc);color:var(--bg);font-weight:700}
+.tab:hover:not(.on){color:var(--txt);background:var(--sur2)}
+.card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.ctit{font-family:var(--fh);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--acc);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:640px){.g2{grid-template-columns:1fr}}
+label{display:block;font-size:11px;color:var(--mut);margin-bottom:3px;font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+input,select{width:100%;background:var(--sur2);border:1px solid var(--bor);border-radius:7px;padding:8px 10px;color:var(--txt);font-family:var(--fb);font-size:13px}
+input:focus,select:focus{outline:none;border-color:var(--acc)}
+.btn{padding:9px 16px;border-radius:7px;border:none;font-family:var(--fb);font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.bp{background:var(--acc);color:var(--bg)}.bg{background:var(--sur2);color:var(--txt);border:1px solid var(--bor)}.bd{background:var(--acc3);color:#fff}.bs{background:var(--acc2);color:var(--bg)}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:10px;color:var(--mut);font-weight:600;text-transform:uppercase;padding:7px 8px;border-bottom:1px solid var(--bor)}
+td{padding:6px 8px;border-bottom:1px solid var(--bor);font-size:12px}
+tr:last-child td{border-bottom:none}
+.bdg{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700}
+.bg2{background:#1a3d2e;color:var(--acc2)}.br{background:#3d1a1a;color:var(--acc3)}.by{background:#3d3000;color:var(--acc)}
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+.st{background:var(--sur2);border-radius:var(--r);padding:12px;border:1px solid var(--bor)}
+.sl{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.sv{font-family:var(--fh);font-size:18px;font-weight:800}
+.gn{color:var(--acc2)}.rd{color:var(--acc3)}.yw{color:var(--acc)}
+.sbox{background:linear-gradient(135deg,#1a2e1a,#0f1f17);border:2px solid var(--acc2);border-radius:var(--r);padding:20px;text-align:center;margin-bottom:12px}
+.slb{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:1px}
+.svl{font-family:var(--fh);font-size:36px;font-weight:800;margin:6px 0}
+.smt{font-size:11px;color:var(--mut)}
+.fc{background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);padding:14px;margin-bottom:9px}
+.fn{font-family:var(--fh);font-size:13px;font-weight:700;margin-bottom:9px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.ff{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.ft{margin-top:10px;padding-top:10px;border-top:1px solid var(--bor);display:flex;justify-content:space-between;align-items:center}
+.fv{font-family:var(--fh);font-size:18px;font-weight:800;color:var(--acc2)}
+.wb{background:var(--sur2);border:1px solid var(--bor);border-radius:7px;padding:10px;margin-top:8px;white-space:pre-wrap;font-size:11px;font-family:monospace}
+.cb{font-weight:700;color:var(--acc3)}.cz{color:var(--mut)}
+.lod{text-align:center;padding:40px;color:var(--mut)}
+.tst{position:fixed;bottom:20px;right:20px;background:var(--acc2);color:var(--bg);padding:10px 18px;border-radius:9px;font-weight:700;font-size:12px;z-index:999}
+.rf{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sml{font-size:11px!important;padding:6px 10px!important}
+.inp-s{width:70px!important;font-size:11px!important;padding:4px 6px!important}
+.tag{font-size:10px;color:var(--acc2);margin-top:2px}
+.ni{background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);padding:12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
+`;
+
+function Toast({msg}){if(!msg)return null;return <div className="tst">✓ {msg}</div>;}
+
+function MoneyRow({label,value,onSave,oculto,cor,indent}){
+  const [editing,setEditing]=useState(false);
+  const [raw,setRaw]=useState("");
+  const startEdit=()=>{setRaw(num(value)||"");setEditing(true);};
+  const endEdit=()=>{setEditing(false);onSave(raw);};
+  return(
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0"}}>
+      <div style={{fontSize:12,color:"var(--mut)",paddingLeft:indent?16:0}}>{label}</div>
+      {editing?(
+        <input type="number" autoFocus style={{width:120,fontSize:12,padding:"3px 8px",background:"var(--sur2)",border:"1px solid var(--acc)",borderRadius:6,color:"var(--txt)",textAlign:"right"}}
+          value={raw} onChange={e=>setRaw(e.target.value)} onBlur={endEdit} onKeyDown={e=>e.key==="Enter"&&endEdit()}/>
+      ):(
+        <div onClick={startEdit} style={{width:120,fontSize:12,padding:"3px 8px",background:"var(--sur2)",border:"1px solid var(--bor)",borderRadius:6,color:cor?`var(--${cor})`:"var(--txt)",textAlign:"right",cursor:"pointer"}}>
+          {oculto?"••••••":num(value)>0?fmt(value):<span style={{color:"var(--mut)"}}>R$ 0,00</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function App(){
+  const [tab,setTab]=useState("fat");
+  const [semanas,setSemanas]=useState([]);
+  const [semanaId,setSemanaId]=useState(null);
+  const [semana,setSemana]=useState(null);
+  const [vales,setVales]=useState([]);
+  const [folha,setFolha]=useState([]);
+  const [contagem,setContagem]=useState({});
+  const [fornecedores,setFornecedores]=useState({});
+  const [funcionarios,setFuncionarios]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [toast,setToast]=useState("");
+  const [novaSemana,setNovaSemana]=useState("");
+
+  const showToast=(m)=>{setToast(m);setTimeout(()=>setToast(""),2500);};
+
+  useEffect(()=>{initApp();},[]);
+
+  const initApp=async()=>{
+    const {data:fd}=await sb.from("fornecedores_config").select("*");
+    if(fd&&fd.length>0){
+      const obj={};
+      fd.forEach(r=>{if(!obj[r.fornecedor])obj[r.fornecedor]=[];obj[r.fornecedor].push({nome:r.item,min:r.min,preco:r.preco,tipo:r.tipo||"un",fator:r.fator||1,unidade_compra:r.unidade_compra||"unidade",whatsapp:r.whatsapp});});
+      setFornecedores(obj);
+    }
+    const {data:func}=await sb.from("funcionarios_config").select("*").order("ordem");
+    if(func&&func.length>0)setFuncionarios(func);
+    await carregarSemanas();
+  };
+
+  const carregarSemanas=async()=>{
+    const {data}=await sb.from("semanas").select("*").order("created_at",{ascending:false});
+    setSemanas(data||[]);
+    if(data&&data.length>0)setSemanaId(prev=>prev||data[0].id);
+    else setLoading(false);
+  };
+
+  useEffect(()=>{if(semanaId&&Object.keys(fornecedores).length>0)carregarDados();},[semanaId]);
+
+  const carregarDados=async()=>{
+    setLoading(true);
+    const [s,v,f,ct]=await Promise.all([
+      sb.from("semanas").select("*").eq("id",semanaId).single(),
+      sb.from("vales").select("*").eq("semana_id",semanaId).order("created_at",{ascending:false}),
+      sb.from("folha").select("*").eq("semana_id",semanaId),
+      sb.from("contagem").select("*").eq("semana_id",semanaId),
+    ]);
+    setSemana(s.data);setVales(v.data||[]);setFolha(f.data||[]);
+    const obj={};
+    (ct.data||[]).forEach(r=>{if(!obj[r.fornecedor])obj[r.fornecedor]={};obj[r.fornecedor][r.item]=r.estoque;});
+    setContagem(obj);setLoading(false);
+  };
+
+  const criarSemana=async()=>{
+    if(!novaSemana.trim())return;
+    const {data}=await sb.from("semanas").insert({periodo:novaSemana}).select().single();
+    if(data){showToast("Semana criada!");setNovaSemana("");await carregarSemanas();setSemanaId(data.id);}
+  };
+
+  const fatSmash=()=>num(semana?.receita_smash);
+  const fatClassic=()=>num(semana?.receita_classic);
+  const fatGrupo=()=>fatSmash()+fatClassic();
+  const repasse=()=>num(semana?.repasse);
+  const imposto=()=>fatGrupo()*0.06;
+
+  const calcComprasForn=()=>{
+    const totais={};
+    Object.entries(fornecedores).forEach(([forn,itens])=>{
+      const ct=contagem[forn]||{};
+      let total=0;
+      itens.forEach(item=>{total+=calcComprar(item,ct[item.nome]||0)*num(item.preco);});
+      totais[forn]=total;
+    });
+    return totais;
+  };
+  const totalCompras=()=>Object.values(calcComprasForn()).reduce((a,v)=>a+v,0);
+  const totalFixos=()=>FIXOS_SEMANA.reduce((a,f)=>a+f.valor,0);
+
+  const calcFolhaFunc=(fid)=>{
+    const fd=folha.find(f=>f.funcionario_id===fid);
+    const func=funcionarios.find(f=>f.id===fid);
+    if(!fd||!func)return{base:0,comissao:0,bonus:0,descAtraso:0,liquido:0};
+    const base=num(fd.dias)*num(func.valor_dia);
+    const comissao=func.comissao?num(fd.pedidos_comissao)*0.40:0;
+    const bonus=func.comissao?0:calcBonus(num(fd.pedidos_bonus));
+    const descAtraso=(num(func.valor_dia)/6/60)*num(fd.minutos_atraso||0);
+    return{base,comissao,bonus,descAtraso,liquido:base+comissao+bonus+num(fd.vale_transporte)-num(fd.desconto)-descAtraso};
+  };
+  const totalFolha=()=>funcionarios.reduce((a,f)=>a+calcFolhaFunc(f.id).liquido,0);
+  const totalContasPagar=()=>imposto()+totalCompras()+totalFolha()+totalFixos();
+  const saldo=()=>repasse()-imposto()-totalCompras()-totalFixos()-totalFolha();
+
+  const updateSemana=async(field,value)=>{
+    const {error}=await sb.from("semanas").update({[field]:Number(value)}).eq("id",semanaId);
+    if(error)showToast("Erro ao salvar!");
+    else{setSemana(prev=>({...prev,[field]:Number(value)}));showToast("Salvo!");}
+  };
+  const updateFolha=async(fid,field,value)=>{
+    const func=funcionarios.find(f=>f.id===fid);
+    const existing=folha.find(f=>f.funcionario_id===fid);
+    if(existing){
+      await sb.from("folha").update({[field]:value}).eq("id",existing.id);
+      setFolha(prev=>prev.map(f=>f.funcionario_id===fid?{...f,[field]:value}:f));
+    } else {
+      const {data}=await sb.from("folha").insert({semana_id:semanaId,funcionario_id:fid,funcionario_nome:func.nome,[field]:value}).select().single();
+      if(data)setFolha(prev=>[...prev,data]);
+    }
+  };
+  const updateContagem=async(fornecedor,item,estoque)=>{
+    setContagem(prev=>({...prev,[fornecedor]:{...(prev[fornecedor]||{}),[item]:estoque}}));
+    await sb.from("contagem").upsert({semana_id:semanaId,fornecedor,item,estoque:Number(estoque)},{onConflict:"semana_id,fornecedor,item"});
+  };
+  const updateItem=async(fornecedor,itemNome,field,value)=>{
+    setFornecedores(prev=>{const n={...prev};n[fornecedor]=n[fornecedor].map(i=>i.nome===itemNome?{...i,[field]:value}:i);return n;});
+    const parsed=(field==="preco"||field==="min"||field==="fator")?Number(value):value;
+    await sb.from("fornecedores_config").update({[field]:parsed}).eq("fornecedor",fornecedor).eq("item",itemNome);
+    showToast("Salvo!");
+  };
+  const updateFuncionario=async(fid,field,value)=>{
+    setFuncionarios(prev=>prev.map(f=>f.id===fid?{...f,[field]:value}:f));
+    await sb.from("funcionarios_config").update({[field]:value}).eq("id",fid);
+  };
+  const lancarVale=async(vale)=>{
+    const {data}=await sb.from("vales").insert({semana_id:semanaId,...vale}).select().single();
+    if(data){
+      setVales(prev=>[data,...prev]);
+      const fd=folha.find(f=>f.funcionario_id===vale.funcionario_id);
+      await updateFolha(vale.funcionario_id,"desconto",num(fd?.desconto)+num(vale.valor));
+      showToast("Vale registrado!");
+    }
+  };
+  const removerVale=async(id)=>{
+    await sb.from("vales").delete().eq("id",id);
+    setVales(prev=>prev.filter(v=>v.id!==id));
+    showToast("Vale removido");
+  };
+  const adicionarFuncionario=async(func)=>{
+    const id=func.nome.toLowerCase().replace(/\s+/g,"_").replace(/[^a-z0-9_]/g,"")+"_"+Date.now();
+    const proxOrdem=funcionarios.length>0?Math.max(...funcionarios.map(f=>f.ordem||0))+1:1;
+    const {data}=await sb.from("funcionarios_config").insert({id,nome:func.nome,valor_dia:func.valor_dia,comissao:func.comissao,ordem:proxOrdem}).select().single();
+    if(data)setFuncionarios(prev=>[...prev,data]);
+    showToast(`${func.nome} adicionado!`);
+  };
+  const removerFuncionario=async(fid)=>{
+    await sb.from("funcionarios_config").delete().eq("id",fid);
+    setFuncionarios(prev=>prev.filter(f=>f.id!==fid));
+    showToast("Funcionário removido");
+  };
+  const adicionarFornecedor=async(nome)=>{
+    if(!nome.trim()||fornecedores[nome])return;
+    setFornecedores(prev=>({...prev,[nome]:[]}));
+    showToast(`${nome} adicionado!`);
+  };
+  const adicionarItem=async(fornecedor,item)=>{
+    if(!item.nome.trim())return;
+    await sb.from("fornecedores_config").insert({fornecedor,item:item.nome,min:item.min||0,preco:item.preco||0,tipo:item.tipo||"un",fator:item.fator||1,unidade_compra:item.unidade_compra||"unidade"});
+    setFornecedores(prev=>({...prev,[fornecedor]:[...(prev[fornecedor]||[]),item]}));
+    showToast("Item adicionado!");
+  };
+  const gerarPedido=(fornecedor)=>{
+    const itens=fornecedores[fornecedor]||[];
+    const ct=contagem[fornecedor]||{};
+    const linhas=itens.map(i=>{const comp=calcComprar(i,ct[i.nome]||0);return comp>0?`• ${i.nome}: *${comp} ${i.unidade_compra}*`:null;}).filter(Boolean);
+    if(!linhas.length)return null;
+    return `Olá, tudo bem? Esse é meu pedido para a semana:\n\n${linhas.join("\n")}\n\nObrigado! 🤙`;
+  };
+
+  const TABS=[
+    {id:"fat",label:"📊 Faturamento"},
+    {id:"indicadores",label:"📈 Indicadores"},
+    {id:"est",label:"📦 Estoque"},
+    {id:"folha",label:"👥 Folha"},
+    {id:"vales",label:"💸 Vales"},
+    {id:"ponto",label:"🕐 Ponto"},
+    {id:"agente",label:"⚡ Sonic IA"},
+    {id:"cfg",label:"⚙️ Config"},
+  ];
+
+  return(
+    <>
+      <style>{css}</style>
+      <Toast msg={toast}/>
+      <div className="app">
+        <div className="hdr">
+          <div className="logo">SY</div>
+          <div><div className="ttl">Smash You — Gestão</div><div className="sub">Controle semanal · Folha · Estoque</div></div>
+          <div className="sp"/>
+          <span className="bdg bg2">● Online</span>
+        </div>
+        <div className="card" style={{marginBottom:14}}>
+          <div className="rf">
+            <div style={{flex:1}}>
+              <label>Semana ativa</label>
+              <select value={semanaId||""} onChange={e=>setSemanaId(e.target.value)}>
+                {semanas.map(s=><option key={s.id} value={s.id}>{s.periodo||`Semana ${new Date(s.created_at).toLocaleDateString("pt-BR")}`}</option>)}
+              </select>
+            </div>
+            <div style={{flex:1}}>
+              <label>Nova semana</label>
+              <div className="rf" style={{gap:6}}>
+                <input type="text" placeholder="Ex: 19/05 a 25/05" value={novaSemana} onChange={e=>setNovaSemana(e.target.value)} onKeyDown={e=>e.key==="Enter"&&criarSemana()}/>
+                <button className="btn bp" onClick={criarSemana}>+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="tabs">{TABS.map(t=><button key={t.id} className={`tab${tab===t.id?" on":""}`} onClick={()=>{setTab(t.id);if(t.id==="folha")carregarDados();}}>{t.label}</button>)}</div>
+        {loading?<div className="lod">Carregando...</div>:!semanaId?<div className="lod">Crie uma semana para começar ☝️</div>:(
+          <>
+            {tab==="fat"&&<TabFaturamento semana={semana} updateSemana={updateSemana} fatSmash={fatSmash} fatClassic={fatClassic} fatGrupo={fatGrupo} repasse={repasse} imposto={imposto} totalCompras={totalCompras} totalFolha={totalFolha} totalFixos={totalFixos} saldo={saldo} totalContasPagar={totalContasPagar} comprasForn={calcComprasForn()} fornecedores={fornecedores}/>}
+            {tab==="indicadores"&&<TabIndicadores semanas={semanas} sb={sb}/>}
+            {tab==="est"&&<TabEstoque fornecedores={fornecedores} contagem={contagem} updateContagem={updateContagem} updateItem={updateItem} gerarPedido={gerarPedido} showToast={showToast} adicionarItem={adicionarItem} comprasForn={calcComprasForn()}/>}
+            {tab==="folha"&&<TabFolha folha={folha} updateFolha={updateFolha} calcFolhaFunc={calcFolhaFunc} totalFolha={totalFolha} funcionarios={funcionarios} updateFuncionario={updateFuncionario}/>}
+            {tab==="vales"&&<TabVales vales={vales} lancarVale={lancarVale} removerVale={removerVale} funcionarios={funcionarios}/>}
+            {tab==="ponto"&&<TabPonto semanaId={semanaId} funcionarios={funcionarios} sb={sb}/>}
+            {tab==="agente"&&<TabAgente semanas={semanas} semana={semana} funcionarios={funcionarios} fatGrupo={fatGrupo} repasse={repasse} imposto={imposto} saldo={saldo} totalCompras={totalCompras} totalFolha={totalFolha} totalFixos={totalFixos}/>}
+            {tab==="cfg"&&<TabConfig fornecedores={fornecedores} adicionarFornecedor={adicionarFornecedor} adicionarItem={adicionarItem} updateItem={updateItem} funcionarios={funcionarios} updateFuncionario={updateFuncionario} adicionarFuncionario={adicionarFuncionario} removerFuncionario={removerFuncionario} sb={sb}/>}
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
+function TabFaturamento({semana,updateSemana,fatSmash,fatClassic,fatGrupo,repasse,imposto,totalCompras,totalFolha,totalFixos,saldo,totalContasPagar,comprasForn,fornecedores}){
+  const [oculto,setOculto]=useState(true);
+  const s=saldo();const meta=3000;const pct=Math.min(100,Math.max(0,(s/meta)*100));
+  const cor=s>=meta?"gn":s>=0?"yw":"rd";
+  const DRERow=({label,valor,bold,cor,indent,sep})=>(
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:`${sep?"10px 0 4px":"4px 0"}`,borderTop:sep?"1px solid var(--bor)":"none",marginTop:sep?"6px":"0"}}>
+      <div style={{fontSize:12,fontWeight:bold?700:400,color:indent?"var(--mut)":"var(--txt)",paddingLeft:indent?16:0}}>{label}</div>
+      <div style={{fontSize:12,fontWeight:bold?700:400,color:`var(--${cor||"txt"})`}}>{oculto?"••••••":fmt(valor)}</div>
+    </div>
+  );
+  return(
+    <div>
+      <div className="rf" style={{marginBottom:12,justifyContent:"flex-end"}}>
+        <button className="btn bg sml" onClick={()=>setOculto(o=>!o)}>{oculto?"👁 Revelar":"🙈 Ocultar"}</button>
+      </div>
+      <div className="sbox">
+        <div className="slb">Saldo / Sua retirada</div>
+        <div className={`svl ${cor}`}>{oculto?"R$ ••••••":fmt(s)}</div>
+        <div className="smt">Meta: {oculto?"R$ ••••••":fmt(meta)} — {oculto?"••":pct.toFixed(0)}% atingido</div>
+        <div style={{background:"#0f1f17",borderRadius:20,height:5,marginTop:8,overflow:"hidden"}}>
+          <div style={{background:s>=meta?"var(--acc2)":s>=0?"var(--acc)":"var(--acc3)",width:oculto?"0%":`${pct}%`,height:"100%",borderRadius:20,transition:"width .4s"}}/>
+        </div>
+      </div>
+      <div className="g2">
+        <div className="card">
+          <div className="ctit">📊 Resultado da Semana</div>
+          {[["receita_smash","Faturamento Smash You"],["receita_classic","Faturamento Classic Burger"]].map(([k,l])=>(
+            <MoneyRow key={k} label={l} value={semana?.[k]||0} onSave={v=>updateSemana(k,v)} oculto={oculto}/>
+          ))}
+          <DRERow label="Faturamento do Grupo" valor={fatGrupo()} bold cor="acc2" sep/>
+          <MoneyRow label="Repasse recebido das plataformas" value={semana?.repasse||0} onSave={v=>updateSemana("repasse",v)} oculto={oculto} cor="acc2" indent/>
+          <DRERow label="(-) Imposto (6%)" valor={imposto()} indent cor="acc3"/>
+          <DRERow label="(-) Compras" valor={totalCompras()} indent cor="acc3" sep/>
+          <DRERow label="(-) Folha" valor={totalFolha()} indent cor="acc3"/>
+          <DRERow label="(-) Fixos" valor={totalFixos()} indent cor="acc3"/>
+          <div style={{marginTop:10,padding:"8px 10px",background:"#3d1a1a",borderRadius:8,border:"1px solid var(--acc3)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div><div style={{fontSize:11,fontWeight:700,color:"var(--acc3)"}}>📋 Total Contas a Pagar</div><div style={{fontSize:9,color:"var(--mut)",marginTop:2}}>Imposto + Compras + Folha + Fixos</div></div>
+            <div style={{fontSize:15,fontWeight:800,color:"var(--acc3)"}}>{oculto?"••••••":fmt(totalContasPagar())}</div>
+          </div>
+          <DRERow label="= Saldo / Retirada" valor={saldo()} bold cor={saldo()>=3000?"acc2":saldo()>=0?"acc":"acc3"} sep/>
+        </div>
+        <div>
+          <div className="card">
+            <div className="ctit">🛒 Compras por fornecedor</div>
+            {Object.keys(fornecedores).map(f=>(
+              <div key={f} style={{display:"flex",justifyContent:"space-between",padding:"3px 0",fontSize:12}}>
+                <span style={{color:"var(--mut)"}}>{f}</span>
+                <span style={{fontWeight:600,color:"var(--acc)"}}>{fmt(comprasForn[f]||0)}</span>
+              </div>
+            ))}
+            <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0 0",borderTop:"1px solid var(--bor)",marginTop:6,fontSize:12,fontWeight:700}}>
+              <span>Total estimado</span><span style={{color:"var(--acc)"}}>{fmt(totalCompras())}</span>
+            </div>
+          </div>
+          <div className="card">
+            <div className="ctit">🔒 Fixos da semana</div>
+            {FIXOS_SEMANA.map(f=>(
+              <div key={f.label} style={{display:"flex",justifyContent:"space-between",padding:"3px 0",fontSize:12}}>
+                <span style={{color:"var(--mut)"}}>{f.label}</span><span>{fmt(f.valor)}</span>
+              </div>
+            ))}
+            <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0 0",borderTop:"1px solid var(--bor)",marginTop:6,fontSize:12,fontWeight:700}}>
+              <span>Total</span><span style={{color:"var(--acc)"}}>{fmt(totalFixos())}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TabEstoque({fornecedores,contagem,updateContagem,updateItem,gerarPedido,showToast,adicionarItem,comprasForn}){
+  const [open,setOpen]=useState(null);
+  const [copiado,setCopiado]=useState(null);
+  const [subTab,setSubTab]=useState("semanal");
+  const [comprasDiarias,setComprasDiarias]=useState([]);
+  const [whatsapps,setWhatsapps]=useState({});
+
+  useEffect(()=>{
+    sb.from("fornecedores_config").select("fornecedor,whatsapp").then(({data})=>{
+      const obj={};(data||[]).forEach(r=>{if(r.whatsapp)obj[r.fornecedor]=r.whatsapp;});setWhatsapps(obj);
+    });
+    if(subTab==="diaria"){
+      const hoje=new Date().toISOString().split("T")[0];
+      sb.from("contagem_diaria").select("*").eq("data",hoje).then(({data})=>setComprasDiarias(data||[]));
+    }
+  },[subTab]);
+
+  const abrirWhatsapp=(forn)=>{
+    const rawNum=whatsapps[forn];
+    if(!rawNum){showToast("Cadastre o WhatsApp na aba Config!");return;}
+    const num=rawNum.replace(/\D/g,""); // remove tudo que não é dígito
+    if(!num){showToast("Número inválido! Use formato: 5519999999999");return;}
+    const pedido=gerarPedido(forn);
+    if(!pedido){showToast("Nenhum item a pedir!");return;}
+    const msg=encodeURIComponent(pedido);
+    window.open(`https://wa.me/${num}?text=${msg}`,"_blank");
+  };
+
+  const copiar=(f)=>{
+    const txt=gerarPedido(f);
+    if(txt){navigator.clipboard.writeText(txt);setCopiado(f);setTimeout(()=>setCopiado(null),2000);showToast("Copiado!");}
+  };
+
+  return(
+    <div>
+      <div style={{display:"flex",gap:6,marginBottom:16}}>
+        <button className={`btn ${subTab==="semanal"?"bp":"bg"}`} style={{fontSize:12}} onClick={()=>setSubTab("semanal")}>📦 Estoque Semanal</button>
+        <button className={`btn ${subTab==="diaria"?"bp":"bg"}`} style={{fontSize:12}} onClick={()=>setSubTab("diaria")}>🛒 Compras Diárias</button>
+      </div>
+      {subTab==="diaria"&&(
+        <div className="card">
+          <div className="ctit">🛒 Compras Diárias — {new Date().toLocaleDateString("pt-BR")}</div>
+          {comprasDiarias.length===0?<div style={{color:"var(--mut)",fontSize:13,marginBottom:10}}>Nenhuma contagem diária hoje.</div>:(
+            <table>
+              <thead><tr>
+                <th>Item</th>
+                <th style={{textAlign:"center",width:70}}>Estoque</th>
+                <th style={{textAlign:"center",width:70}}>Mínimo</th>
+                <th style={{textAlign:"center",width:80}}>A comprar</th>
+              </tr></thead>
+              <tbody>{comprasDiarias.map(c=>{
+                const minItem=ITENS_DIARIOS[0]?.itens?.find(i=>i.nome===c.item);
+                const min=minItem?.min||0;
+                const comprar=Math.max(0,min-num(c.quantidade));
+                return(
+                  <tr key={c.id}>
+                    <td>{c.item}</td>
+                    <td style={{textAlign:"center",fontWeight:700,color:"var(--acc)"}}>{c.quantidade}</td>
+                    <td style={{textAlign:"center",color:"var(--mut)"}}>{min}</td>
+                    <td style={{textAlign:"center",fontWeight:700,color:comprar>0?"var(--acc3)":"var(--acc2)"}}>{comprar>0?`▲ ${comprar}`:"OK"}</td>
+                  </tr>
+                );
+              })}</tbody>
+            </table>
+          )}
+          <button className="btn bg sml" style={{marginTop:10}} onClick={()=>{
+            const hoje=new Date().toISOString().split("T")[0];
+            sb.from("contagem_diaria").select("*").eq("data",hoje).then(({data})=>setComprasDiarias(data||[]));
+            showToast("Atualizado!");
+          }}>🔄 Atualizar</button>
+        </div>
+      )}
+      {subTab==="semanal"&&Object.entries(fornecedores).map(([forn,itens])=>{
+        const ct=contagem[forn]||{};
+        const pedido=gerarPedido(forn);
+        const pendentes=itens.filter(i=>calcComprar(i,ct[i.nome]||0)>0).length;
+        const totalForn=comprasForn[forn]||0;
+        const temWhats=!!whatsapps[forn];
+        return(
+          <div className="card" key={forn} style={{marginBottom:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}} onClick={()=>setOpen(open===forn?null:forn)}>
+              <div className="ctit" style={{margin:0}}>
+                🏪 {forn}
+                {pendentes>0&&<span className="bdg br">{pendentes} itens</span>}
+                {totalForn>0&&<span className="bdg by">{fmt(totalForn)}</span>}
+              </div>
+              <div className="rf" style={{gap:6}}>
+                {pedido&&<>
+                  <button className={`btn sml ${temWhats?"bs":"bg"}`} onClick={e=>{e.stopPropagation();abrirWhatsapp(forn);}}>{temWhats?"📱 Fazer Pedido":"📱 Sem número"}</button>
+                  <button className={`btn sml ${copiado===forn?"bs":"bg"}`} onClick={e=>{e.stopPropagation();copiar(forn);}}>{copiado===forn?"✓ Copiado!":"📋 Copiar"}</button>
+                </>}
+                <span style={{color:"var(--mut)"}}>{open===forn?"▲":"▼"}</span>
+              </div>
+            </div>
+            {open===forn&&(
+              <div style={{marginTop:12}}>
+                <table>
+                  <thead><tr><th>Item</th><th style={{width:80,textAlign:"center"}}>Estoque</th><th style={{width:75,textAlign:"center"}}>Mínimo</th><th style={{width:90,textAlign:"right"}}>Preço</th><th style={{width:110,textAlign:"center"}}>Comprar</th><th style={{width:90,textAlign:"right"}}>Valor</th></tr></thead>
+                  <tbody>
+                    {itens.map(item=>{
+                      const est=num(ct[item.nome]||0);
+                      const comp=calcComprar(item,est);
+                      const val=comp*num(item.preco);
+                      const diff=Math.max(0,num(item.min)-est);
+                      return(
+                        <tr key={item.nome}>
+                          <td><div>{item.nome}</div><div style={{fontSize:10,color:"var(--mut)"}}>{item.unidade_compra}</div></td>
+                          <td><input type="number" min={0} className="inp-s" defaultValue={ct[item.nome]||""} placeholder="0" onBlur={e=>updateContagem(forn,item.nome,e.target.value)}/></td>
+                          <td style={{textAlign:"center",fontSize:12,color:"var(--mut)"}}>{item.min}</td>
+                          <td style={{textAlign:"right",fontSize:12,color:"var(--mut)"}}>{num(item.preco)>0?fmt(item.preco):"—"}</td>
+                          <td style={{textAlign:"center"}}>{comp>0?<div><span className="cb">▲ {comp}</span><div style={{fontSize:9,color:"var(--mut)"}}>{item.unidade_compra}</div></div>:<span className="cz">OK</span>}</td>
+                          <td style={{textAlign:"right",fontWeight:comp>0?700:400,color:comp>0?"var(--acc)":"var(--mut)"}}>{comp>0?fmt(val):"—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TabFolha({folha,updateFolha,calcFolhaFunc,totalFolha,funcionarios,updateFuncionario}){
+  const getFd=(fid)=>folha.find(f=>f.funcionario_id===fid)||{};
+  return(
+    <div>
+      <div className="sg" style={{marginBottom:14}}>
+        <div className="st"><div className="sl">Total semanal</div><div className="sv yw">{fmt(totalFolha())}</div></div>
+      </div>
+      {funcionarios.map(f=>{
+        const fd=getFd(f.id);
+        const {base,comissao,bonus,descAtraso,liquido}=calcFolhaFunc(f.id);
+        const bonusVal=calcBonus(num(fd.pedidos_bonus||0));
+        return(
+          <div className="fc" key={f.id}>
+            <div className="fn">
+              👤
+              <input type="text" style={{width:140,fontSize:13,fontWeight:700,background:"transparent",border:"1px solid var(--bor)",borderRadius:6,padding:"3px 8px",color:"var(--txt)",fontFamily:"var(--fh)"}}
+                defaultValue={f.nome} onBlur={e=>updateFuncionario(f.id,"nome",e.target.value)}/>
+              {f.comissao&&<span className="bdg by">+ comissão</span>}
+              <div style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"var(--mut)"}}>
+                R$<input type="number" style={{width:60,fontSize:11,padding:"2px 5px",background:"var(--sur)",border:"1px solid var(--bor)",borderRadius:5,color:"var(--acc2)"}}
+                  defaultValue={f.valor_dia} onBlur={e=>updateFuncionario(f.id,"valor_dia",e.target.value)}/>/dia
+              </div>
+            </div>
+            <div className="ff">
+              <div><label>Dias trab.</label><input type="number" min={0} max={7} defaultValue={fd.dias||""} placeholder="0" onBlur={e=>updateFolha(f.id,"dias",e.target.value)}/></div>
+              <div><label>Vale transp.</label><input type="number" min={0} defaultValue={fd.vale_transporte||""} placeholder="0,00" onBlur={e=>updateFolha(f.id,"vale_transporte",e.target.value)}/></div>
+              {!f.comissao&&<div>
+                <label>Pedidos (bônus)</label>
+                <input type="number" min={0} defaultValue={fd.pedidos_bonus||""} placeholder="Ex: 650" onBlur={e=>updateFolha(f.id,"pedidos_bonus",e.target.value)}/>
+                {bonusVal>0&&<div className="tag">🎯 Bônus: {fmt(bonusVal)}</div>}
+              </div>}
+              {f.comissao&&<div>
+                <label>Pedidos (comissão)</label>
+                <input type="number" min={0} defaultValue={fd.pedidos_comissao||""} placeholder="0" onBlur={e=>updateFolha(f.id,"pedidos_comissao",e.target.value)}/>
+                {num(fd.pedidos_comissao||0)>0&&<div className="tag">{fmt(num(fd.pedidos_comissao)*0.40)}</div>}
+              </div>}
+              <div><label>Descontos / Vales</label><input type="number" min={0} defaultValue={fd.desconto||""} placeholder="0,00" onBlur={e=>updateFolha(f.id,"desconto",e.target.value)}/></div>
+              <div>
+                <label>Minutos de atraso</label>
+                <input type="number" min={0} defaultValue={fd.minutos_atraso||""} placeholder="0" onBlur={e=>updateFolha(f.id,"minutos_atraso",e.target.value)}/>
+                {num(fd.minutos_atraso||0)>0&&<div className="tag" style={{color:"var(--acc3)"}}>Desconto: {fmt((num(f.valor_dia)/6/60)*num(fd.minutos_atraso))}</div>}
+              </div>
+              <div><label>Obs.</label><input type="text" defaultValue={fd.observacao||""} placeholder="Opcional" onBlur={e=>updateFolha(f.id,"observacao",e.target.value)}/></div>
+            </div>
+            <div className="ft">
+              <div style={{fontSize:10,color:"var(--mut)"}}>Base {fmt(base)}{comissao>0?` + comissão ${fmt(comissao)}`:""}{bonusVal>0?` + bônus ${fmt(bonusVal)}`:""}{num(fd.vale_transporte||0)>0?` + VT ${fmt(fd.vale_transporte)}`:""}{num(fd.desconto||0)>0?` − desc. ${fmt(fd.desconto)}`:""}{descAtraso>0?` − atraso ${fmt(descAtraso)}`:""}</div>
+              <div className="fv">{fmt(liquido)}</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TabVales({vales,lancarVale,removerVale,funcionarios}){
+  const [vFunc,setVFunc]=useState("");const [vVal,setVVal]=useState("");const [vDesc,setVDesc]=useState("");
+  const addVale=async()=>{
+    if(!vFunc||!vVal)return;
+    const func=funcionarios.find(f=>f.id===vFunc);
+    await lancarVale({funcionario_id:vFunc,funcionario_nome:func.nome,valor:num(vVal),descricao:vDesc});
+    setVFunc("");setVVal("");setVDesc("");
+  };
+  return(
+    <div className="g2">
+      <div className="card">
+        <div className="ctit">💸 Registrar vale</div>
+        <div style={{display:"grid",gap:10}}>
+          <div><label>Funcionário</label>
+            <select value={vFunc} onChange={e=>setVFunc(e.target.value)}>
+              <option value="">Selecione...</option>
+              {funcionarios.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}
+            </select>
+          </div>
+          <div><label>Valor (R$)</label><input type="number" min={0} value={vVal} placeholder="0,00" onChange={e=>setVVal(e.target.value)}/></div>
+          <div><label>Motivo</label><input type="text" value={vDesc} placeholder="Ex: adiantamento" onChange={e=>setVDesc(e.target.value)}/></div>
+          <button className="btn bp" onClick={addVale}>+ Registrar vale</button>
+        </div>
+      </div>
+      <div className="card">
+        <div className="ctit">📋 Vales registrados</div>
+        {vales.length===0?<div style={{color:"var(--mut)",fontSize:12}}>Nenhum vale ainda.</div>:vales.map(v=>(
+          <div className="ni" key={v.id}>
+            <div><div style={{fontWeight:600,fontSize:13}}>{v.funcionario_nome}</div><div style={{fontSize:10,color:"var(--mut)"}}>{v.descricao||""}</div></div>
+            <div className="rf" style={{gap:7}}><div style={{fontWeight:700,color:"var(--acc3)"}}>{fmt(v.valor)}</div><button className="btn bd" style={{padding:"3px 7px",fontSize:10}} onClick={()=>removerVale(v.id)}>✕</button></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TabPonto({semanaId,funcionarios,sb}){
+  const [registros,setRegistros]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const ENTRADA_H=17,ENTRADA_M=0,SAIDA_H=23,SAIDA_M=20,INT_MAX=20,TOLERANCIA=5;
+
+  // Calcula diferença em minutos entre dois timestamps considerando virada de meia-noite
+  const diffMinutos=(ts1,ts2)=>{
+    const d1=new Date(ts1),d2=new Date(ts2);
+    let diff=Math.round((d2-d1)/60000);
+    return diff;
+  };
+  const toMin=(h,m)=>h*60+m;
+  const fmtHora=(ts)=>{const d=new Date(ts);return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;};
+  const fmtData=(ts)=>{const d=new Date(ts);return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`;};
+  const fmtDuracao=(min)=>{const h=Math.floor(Math.abs(min)/60);const m=Math.abs(min)%60;return `${h}h${String(m).padStart(2,"0")}`;};
+
+  useEffect(()=>{if(semanaId)carregar();},[semanaId]);
+  const carregar=async()=>{
+    setLoading(true);
+    const {data}=await sb.from("ponto").select("*").eq("semana_id",semanaId).order("horario",{ascending:true});
+    setRegistros(data||[]);setLoading(false);
+  };
+
+  // Agrupa registros por dia (usando data local)
+  const agruparPorDia=(regs)=>{
+    const pd={};
+    regs.forEach(r=>{
+      const d=new Date(r.horario);
+      const dStr=`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      if(!pd[dStr])pd[dStr]=[];
+      pd[dStr].push(r);
+    });
+    return pd;
+  };
+
+  const calcDia=(dregs)=>{
+    const ent=dregs.find(r=>r.tipo==="entrada");
+    const si=dregs.find(r=>r.tipo==="saida_intervalo");
+    const vi=dregs.find(r=>r.tipo==="volta_intervalo");
+    const sai=dregs.find(r=>r.tipo==="saida");
+
+    let atrEnt=0,credEnt=0,excInt=0,tempoTotal=0;
+
+    // Atraso na entrada (com tolerância de 5 min)
+    if(ent){
+      const d=new Date(ent.horario);
+      const minEnt=toMin(d.getHours(),d.getMinutes());
+      const minRef=toMin(ENTRADA_H,ENTRADA_M);
+      const diff=minEnt-minRef; // positivo = atrasado
+      if(diff>TOLERANCIA)atrEnt=diff;
+      else if(diff<0)credEnt=Math.abs(diff);
+    }
+
+    // Excesso no intervalo
+    if(si&&vi){
+      const dur=diffMinutos(si.horario,vi.horario);
+      if(dur>INT_MAX)excInt=dur-INT_MAX;
+    }
+
+    // Tempo corrido entrada→saída (considerando virada de meia-noite)
+    if(ent&&sai){
+      tempoTotal=diffMinutos(ent.horario,sai.horario);
+      // Descontar intervalo
+      if(si&&vi)tempoTotal-=diffMinutos(si.horario,vi.horario);
+    }
+
+    return{atrEnt,credEnt,excInt,tempoTotal,ent,si,vi,sai};
+  };
+
+  const tipoLabel={entrada:"Entrada",saida_intervalo:"Saída int.",volta_intervalo:"Volta int.",saida:"Saída"};
+
+  if(loading)return <div className="lod">Carregando ponto...</div>;
+
+  const porFunc={};
+  registros.forEach(r=>{if(!porFunc[r.funcionario_id])porFunc[r.funcionario_id]={nome:r.funcionario_nome,regs:[]};porFunc[r.funcionario_id].regs.push(r);});
+
+  // Resumo geral — só atrasos
+  const funcsComAtraso=Object.values(porFunc).filter(f=>{
+    const pd=agruparPorDia(f.regs);
+    return Object.values(pd).some(dregs=>calcDia(dregs).atrEnt>0);
+  });
+
+  return(
+    <div>
+      {/* Resumo geral no topo */}
+      <div className="sg" style={{marginBottom:16}}>
+        <div className="st"><div className="sl">Funcionários com atraso</div><div className="sv rd">{funcsComAtraso.length}</div></div>
+        <div className="st"><div className="sl">Total de registros</div><div className="sv yw">{registros.length}</div></div>
+        <div className="st"><div className="sl">Tolerância entrada</div><div className="sv gn">{TOLERANCIA} min</div></div>
+      </div>
+
+      {funcionarios.map(func=>{
+        const fd=porFunc[func.id];
+        const regs=fd?.regs||[];
+        const pd=agruparPorDia(regs);
+        const totalAtrMin=Object.values(pd).reduce((a,dregs)=>a+calcDia(dregs).atrEnt,0);
+        const totalCredMin=Object.values(pd).reduce((a,dregs)=>a+calcDia(dregs).credEnt,0);
+
+        return(
+          <div className="card" key={func.id} style={{marginBottom:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <div style={{fontFamily:"var(--fh)",fontSize:14,fontWeight:700}}>👤 {func.nome}</div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
+                <span className="bdg by">{regs.length} registros</span>
+                {totalAtrMin>0&&<span className="bdg br">⚠ {totalAtrMin} min atraso</span>}
+                {totalCredMin>0&&<span className="bdg bg2">+{totalCredMin} min adiantado</span>}
+                {totalAtrMin===0&&regs.length>0&&<span className="bdg bg2">✓ Sem atrasos</span>}
+              </div>
+            </div>
+
+            {Object.entries(pd).length===0?(
+              <div style={{color:"var(--mut)",fontSize:12}}>Nenhum registro essa semana.</div>
+            ):(
+              Object.entries(pd).map(([diaKey,dregs])=>{
+                const {atrEnt,credEnt,excInt,tempoTotal,ent,si,vi,sai}=calcDia(dregs);
+                return(
+                  <div key={diaKey} style={{marginBottom:10,background:"var(--sur2)",borderRadius:8,padding:10}}>
+                    <div style={{fontSize:11,color:"var(--mut)",fontWeight:700,marginBottom:8}}>📅 {fmtData(dregs[0].horario)}</div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(90px,1fr))",gap:6,marginBottom:8}}>
+                      {dregs.map(r=>(
+                        <div key={r.id} style={{textAlign:"center",padding:"6px 4px",background:"var(--sur)",borderRadius:6}}>
+                          <div style={{fontSize:10,color:"var(--mut)",marginBottom:2}}>{tipoLabel[r.tipo]||r.tipo}</div>
+                          <div style={{fontSize:13,fontWeight:700}}>{fmtHora(r.horario)}</div>
+                        </div>
+                      ))}
+                      {ent&&sai&&(
+                        <div style={{textAlign:"center",padding:"6px 4px",background:"var(--sur)",borderRadius:6,border:"1px solid var(--acc2)"}}>
+                          <div style={{fontSize:10,color:"var(--mut)",marginBottom:2}}>⏱ Tempo corrido</div>
+                          <div style={{fontSize:13,fontWeight:700,color:"var(--acc2)"}}>{fmtDuracao(tempoTotal)}</div>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {atrEnt>0&&<span className="bdg br">Atraso entrada: {atrEnt} min</span>}
+                      {credEnt>0&&<span className="bdg bg2">Adiantado: {credEnt} min</span>}
+                      {excInt>0&&<span className="bdg br">Intervalo +{excInt} min</span>}
+                      {atrEnt===0&&excInt===0&&ent&&<span className="bdg bg2">✓ Sem ocorrências</span>}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        );
+      })}
+      <button className="btn bg" style={{marginTop:8}} onClick={carregar}>🔄 Atualizar</button>
+    </div>
+  );
+}
+
+function TabIndicadores({semanas,sb}){
+  const [filtro,setFiltro]=useState("semanal");
+  const [semId,setSemId]=useState(semanas[0]?.id||"");
+  const [mes,setMes]=useState("");
+  const [dados,setDados]=useState(null);
+  const [loading,setLoading]=useState(false);
+  const EXCLUIR=["Caixa Mix Embalagens","Vermello Embalagens","Coca-Cola"];
+
+  useEffect(()=>{calcular();},[semId,filtro,mes]);
+
+  const calcular=async()=>{
+    setLoading(true);
+    let sems=filtro==="semanal"?semanas.filter(s=>s.id===semId):semanas.slice(0,4);
+    if(!sems.length){setDados(null);setLoading(false);return;}
+    const ids=sems.map(s=>s.id);
+    const [cr,fr]=await Promise.all([
+      sb.from("compras").select("*").in("semana_id",ids),
+      sb.from("folha").select("*").in("semana_id",ids),
+    ]);
+    const fatBruto=sems.reduce((a,s)=>a+num(s.receita_smash)+num(s.receita_classic),0);
+    const repasse=sems.reduce((a,s)=>a+num(s.repasse),0);
+    const imposto=fatBruto*0.06;
+    const fixos=FIXOS_SEMANA.reduce((a,f)=>a+f.valor,0)*sems.length;
+    const cmv=(cr.data||[]).filter(c=>!EXCLUIR.includes(c.fornecedor)).reduce((a,c)=>a+num(c.valor),0);
+    const folhaTotal=(fr.data||[]).reduce((a,f)=>a+num(f.dias)*(num(f.valor_dia)||105)+num(f.pedidos_comissao||0)*0.40+calcBonus(num(f.pedidos_bonus||0))-num(f.desconto||0),0);
+    const lucroLiq=repasse-imposto-cmv-folhaTotal-fixos;
+    const cmvPerc=repasse>0?(cmv/repasse)*100:0;
+    const cmoPerc=repasse>0?(folhaTotal/repasse)*100:0;
+    const lucroPerc=repasse>0?(lucroLiq/repasse)*100:0;
+    setDados({fatBruto,fatSmash:sems.reduce((a,s)=>a+num(s.receita_smash),0),fatClassic:sems.reduce((a,s)=>a+num(s.receita_classic),0),repasse,imposto,cmv,cmvPerc,folhaTotal,cmoPerc,fixos,lucroLiq,lucroPerc,margemContrib:repasse-cmv,pe:fixos+folhaTotal,n:sems.length});
+    setLoading(false);
+  };
+
+  const Ind=({label,valor,perc,cor,desc})=>(
+    <div className="st" style={{borderLeft:`3px solid var(--${cor||"bor"})`}}>
+      <div className="sl">{label}</div>
+      <div style={{fontFamily:"var(--fh)",fontSize:14,fontWeight:800,color:`var(--${cor==="acc2"?"acc2":cor==="acc3"?"acc3":"acc"})`,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{fmt(valor)}</div>
+      {perc!==undefined&&<div style={{fontSize:10,color:"var(--mut)",marginTop:2}}>{perc.toFixed(1)}% da receita</div>}
+      {desc&&<div style={{fontSize:10,color:"var(--mut)",marginTop:2}}>{desc}</div>}
+    </div>
+  );
+
+  return(
+    <div>
+      <div className="card" style={{marginBottom:14}}>
+        <div className="ctit">🔍 Filtro</div>
+        <div className="rf" style={{gap:8,marginBottom:12}}>
+          {["semanal","mensal"].map(f=>(
+            <button key={f} className={`btn ${filtro===f?"bp":"bg"}`} style={{fontSize:12}} onClick={()=>setFiltro(f)}>
+              {f==="semanal"?"📅 Semanal":"📆 Mensal"}
+            </button>
+          ))}
+        </div>
+        {filtro==="semanal"&&<div><label>Semana</label>
+          <select value={semId} onChange={e=>setSemId(e.target.value)}>
+            {semanas.map(s=><option key={s.id} value={s.id}>{s.periodo||`Semana ${new Date(s.created_at).toLocaleDateString("pt-BR")}`}</option>)}
+          </select>
+        </div>}
+        {filtro==="mensal"&&<div><label>Mês</label><input type="month" value={mes} onChange={e=>setMes(e.target.value)}/></div>}
+      </div>
+      {loading&&<div className="lod">Calculando...</div>}
+      {dados&&<>
+        <div className="card"><div className="ctit">💰 Faturamento — {dados.n} semana{dados.n>1?"s":""}</div>
+          <div className="sg">
+            <Ind label="Faturamento Bruto" valor={dados.fatBruto} cor="yw"/>
+            <Ind label="Smash You" valor={dados.fatSmash} cor="yw"/>
+            <Ind label="Classic Burger" valor={dados.fatClassic} cor="yw"/>
+            <Ind label="Receita (Repasse)" valor={dados.repasse} cor="acc2"/>
+          </div>
+        </div>
+        <div className="card"><div className="ctit">📊 Custos e Margens</div>
+          <div className="sg">
+            <Ind label="CMV (insumos)" valor={dados.cmv} perc={dados.cmvPerc} cor="acc3"/>
+            <Ind label="CMO (folha)" valor={dados.folhaTotal} perc={dados.cmoPerc} cor="acc3"/>
+            <Ind label="Custos Fixos" valor={dados.fixos} cor="acc3"/>
+            <Ind label="Imposto (6%)" valor={dados.imposto} cor="acc3"/>
+            <Ind label="Margem Contribuição" valor={dados.margemContrib} cor="acc2" desc="Receita − CMV"/>
+            <Ind label="Lucro Líquido" valor={dados.lucroLiq} perc={dados.lucroPerc} cor={dados.lucroLiq>=0?"acc2":"acc3"}/>
+          </div>
+        </div>
+        <div className="card"><div className="ctit">🎯 Ponto de Equilíbrio</div>
+          <div className="sg">
+            <Ind label="Ponto de Equilíbrio" valor={dados.pe} cor="yw" desc="Fixos + Folha"/>
+            <div className="st"><div className="sl">Status</div>
+              <div className={`sv ${dados.repasse>=dados.pe?"gn":"rd"}`}>{dados.repasse>=dados.pe?"✅ Acima do PE":"⚠️ Abaixo do PE"}</div>
+            </div>
+          </div>
+        </div>
+      </>}
+    </div>
+  );
+}
+
+function TabAgente({semanas,semana,funcionarios,fatGrupo,repasse,imposto,saldo,totalCompras,totalFolha,totalFixos}){
+  const [msgs,setMsgs]=useState([{role:"assistant",content:"⚡ Olá Matheus! Sou o Sonic IA. Tenho acesso a todos os dados da ferramenta e histórico do Saipos. Como posso ajudar?"}]);
+  const [input,setInput]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [pdfTexto,setPdfTexto]=useState("");
+
+  const SAIPOS=`SMASH YOU (Fev-Mai/2026): 3.791 pedidos, R$294.906. Fev:790/R$54.961, Mar:1.225/R$91.956(melhor), Abr:508/R$45.324, Mai:1.225/R$93.026. Canais: iFood 1.473ped R$111.445 ticket R$82,73 | 99Food 2.093ped R$171.460 (dominante). Top item: 2 Hamburguer+2 Batatas (1.008x).
+CLASSIC BURGER (Fev-Mai/2026): 5.169 pedidos, R$218.047. Fev:607/R$42.173, Mar:761/R$52.447, Abr:678/R$40.032, Mai:1.080/R$75.040. Canais: iFood 1.349ped R$90.160 ticket R$60,98 | 99Food 3.029ped (dominante). Top item: 2 Burgers+2 Batatas (1.100x).
+GRUPO: 8.960 pedidos, R$512.953. Pico: 19h todos os dias.`;
+
+  const ctx=`Você é o Sonic IA, assistente do Smash You Burger em Campinas. Responda em português, direto e prático.
+Semana atual (${semana?.periodo||"não definida"}): Fat.Bruto R$${fatGrupo().toFixed(2)}, Repasse R$${repasse().toFixed(2)}, Imposto R$${imposto().toFixed(2)}, Compras R$${totalCompras().toFixed(2)}, Folha R$${totalFolha().toFixed(2)}, Fixos R$${totalFixos().toFixed(2)}, Saldo R$${saldo().toFixed(2)}, Meta R$3000.
+Funcionários: ${funcionarios.map(f=>f.nome).join(", ")}.
+HISTÓRICO SAIPOS: ${SAIPOS}
+${pdfTexto?`PDF ANEXADO: ${pdfTexto}`:""}`;
+
+  const enviar=async()=>{
+    if(!input.trim()||loading)return;
+    const novaMsgs=[...msgs,{role:"user",content:input}];
+    setMsgs(novaMsgs);setInput("");setLoading(true);
+    try{
+      const res=await fetch("https://api.openai.com/v1/chat/completions",{
+        method:"POST",
+        headers:{"Content-Type":"application/json","Authorization":"Bearer OPENAI_KEY_AQUI"},
+        body:JSON.stringify({
+          model:"gpt-4o-mini",max_tokens:1500,
+          messages:[{role:"system",content:ctx},...novaMsgs.filter((m,i)=>m.role==="user"||(m.role==="assistant"&&i>0)).map(m=>({role:m.role,content:m.content}))]
+        })
+      });
+      const data=await res.json();
+      setMsgs(prev=>[...prev,{role:"assistant",content:data.choices?.[0]?.message?.content||"Não consegui responder."}]);
+    }catch{
+      setMsgs(prev=>[...prev,{role:"assistant",content:"Erro ao conectar. Tente novamente."}]);
+    }
+    setLoading(false);
+  };
+
+  return(
+    <div>
+      <div className="card" style={{marginBottom:12,background:"linear-gradient(135deg,#1a1a0a,#2a2a00)",border:"1px solid var(--acc)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <div style={{fontSize:32}}>⚡</div>
+          <div>
+            <div style={{fontFamily:"var(--fh)",fontSize:16,fontWeight:800,color:"var(--acc)"}}>Sonic IA</div>
+            <div style={{fontSize:11,color:"var(--mut)"}}>Assistente de gestão · Dados Saipos integrados</div>
+          </div>
+          <div style={{marginLeft:"auto"}}>
+            <label style={{fontSize:10,color:"var(--mut)",display:"block",marginBottom:4}}>Anexar PDF do Saipos</label>
+            <input type="file" accept=".pdf,.txt,.csv" style={{fontSize:11,color:"var(--mut)"}}
+              onChange={e=>{const f=e.target.files[0];if(f){const r=new FileReader();r.onload=ev=>setPdfTexto(ev.target.result.substring(0,3000));r.readAsText(f);}}}/>
+            {pdfTexto&&<div style={{fontSize:10,color:"var(--acc2)",marginTop:2}}>✓ PDF carregado</div>}
+          </div>
+        </div>
+      </div>
+      <div className="card" style={{minHeight:380,display:"flex",flexDirection:"column"}}>
+        <div style={{flex:1,overflowY:"auto",maxHeight:420,display:"flex",flexDirection:"column",gap:10,marginBottom:12}}>
+          {msgs.map((m,i)=>(
+            <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start"}}>
+              <div style={{maxWidth:"82%",padding:"10px 14px",borderRadius:12,fontSize:13,lineHeight:1.7,background:m.role==="user"?"var(--acc)":"var(--sur2)",color:m.role==="user"?"var(--bg)":"var(--txt)",whiteSpace:"pre-wrap"}}>
+                {m.content}
+              </div>
+            </div>
+          ))}
+          {loading&&<div style={{display:"flex",justifyContent:"flex-start"}}><div style={{background:"var(--sur2)",padding:"10px 14px",borderRadius:12,fontSize:13,color:"var(--mut)"}}>⚡ Sonic digitando...</div></div>}
+        </div>
+        <div className="rf" style={{gap:8}}>
+          <input type="text" value={input} placeholder="Pergunte sobre vendas, faturamento, canais..." style={{flex:1}} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&enviar()}/>
+          <button className="btn bp" onClick={enviar} disabled={loading}>⚡ Enviar</button>
+        </div>
+      </div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:8}}>
+        {["Como estão as vendas?","Qual canal vende mais?","Qual meu ticket médio?","Estou batendo a meta?","Compare Smash vs Classic","Qual horário vendo mais?"].map(s=>(
+          <button key={s} className="btn bg" style={{fontSize:11}} onClick={()=>setInput(s)}>{s}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TabConfig({fornecedores,adicionarFornecedor,adicionarItem,updateItem,funcionarios,updateFuncionario,adicionarFuncionario,removerFuncionario,sb}){
+  const [novoForn,setNovoForn]=useState("");
+  const [novoItem,setNovoItem]=useState({forn:"",nome:"",min:0,preco:0,tipo:"un",fator:1,unidade_compra:"unidade"});
+  const [novoFunc,setNovoFunc]=useState({nome:"",valor_dia:0,comissao:false});
+  const [fornSel,setFornSel]=useState("");
+  const [usuarios,setUsuarios]=useState([]);
+  const [novoUser,setNovoUser]=useState({nome:"",usuario:"",senha:"",perfil:"operador"});
+  const [whatsapps,setWhatsapps]=useState({});
+
+  useEffect(()=>{
+    sb.from("usuarios").select("*").order("created_at").then(({data})=>setUsuarios(data||[]));
+    sb.from("fornecedores_config").select("fornecedor,whatsapp").then(({data})=>{
+      const obj={};(data||[]).forEach(r=>{if(r.whatsapp)obj[r.fornecedor]=r.whatsapp;});setWhatsapps(obj);
+    });
+  },[]);
+
+  const carregarUsers=async()=>{const {data}=await sb.from("usuarios").select("*").order("created_at");setUsuarios(data||[]);};
+
+  return(
+    <div>
+      <div className="card" style={{marginBottom:14}}>
+        <div className="ctit">👥 Funcionários</div>
+        <div style={{marginBottom:14}}>
+          {funcionarios.map(f=>(
+            <div key={f.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"1px solid var(--bor)",flexWrap:"wrap"}}>
+              <input type="text" style={{flex:1,minWidth:120,fontSize:13,fontWeight:600,background:"var(--sur2)",border:"1px solid var(--bor)",borderRadius:6,padding:"5px 8px",color:"var(--txt)"}}
+                defaultValue={f.nome} onBlur={e=>updateFuncionario(f.id,"nome",e.target.value)}/>
+              <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12}}>
+                R$<input type="number" style={{width:70,fontSize:12,padding:"5px 7px",background:"var(--sur2)",border:"1px solid var(--bor)",borderRadius:6,color:"var(--acc2)"}}
+                  defaultValue={f.valor_dia} onBlur={e=>updateFuncionario(f.id,"valor_dia",e.target.value)}/>/dia
+              </div>
+              <label style={{display:"flex",alignItems:"center",gap:4,fontSize:12,color:"var(--mut)",textTransform:"none",letterSpacing:0}}>
+                <input type="checkbox" defaultChecked={f.comissao} onChange={e=>updateFuncionario(f.id,"comissao",e.target.checked)}/>comissão
+              </label>
+              <button className="btn bd" style={{padding:"4px 10px",fontSize:11}} onClick={()=>removerFuncionario(f.id)}>✕</button>
+            </div>
+          ))}
+        </div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
+          <div style={{flex:2,minWidth:120}}><label>Nome</label><input type="text" value={novoFunc.nome} placeholder="Nome" onChange={e=>setNovoFunc(p=>({...p,nome:e.target.value}))}/></div>
+          <div style={{flex:1,minWidth:80}}><label>R$/dia</label><input type="number" value={novoFunc.valor_dia} onChange={e=>setNovoFunc(p=>({...p,valor_dia:e.target.value}))}/></div>
+          <button className="btn bp" onClick={async()=>{if(novoFunc.nome.trim()){await adicionarFuncionario(novoFunc);setNovoFunc({nome:"",valor_dia:0,comissao:false});}}}>+ Adicionar</button>
+        </div>
+      </div>
+
+      <div className="card" style={{marginBottom:14}}>
+        <div className="ctit">🔐 Usuários (Contagem)</div>
+        <div style={{marginBottom:12}}>
+          {usuarios.map(u=>(
+            <div key={u.id} style={{display:"flex",alignItems:"center",gap:6,padding:"7px 0",borderBottom:"1px solid var(--bor)",flexWrap:"wrap"}}>
+              <input type="text" style={{flex:1,minWidth:100,fontSize:12,background:"var(--sur2)",border:"1px solid var(--bor)",borderRadius:6,padding:"4px 8px",color:"var(--txt)"}}
+                defaultValue={u.nome} onBlur={async e=>{await sb.from("usuarios").update({nome:e.target.value}).eq("id",u.id);}}/>
+              <input type="text" style={{width:120,fontSize:12,background:"var(--sur2)",border:"1px solid var(--bor)",borderRadius:6,padding:"4px 8px",color:"var(--mut)"}}
+                defaultValue={u.usuario} onBlur={async e=>{await sb.from("usuarios").update({usuario:e.target.value}).eq("id",u.id);}}/>
+              <input type="text" style={{width:110,fontSize:12,background:"var(--sur2)",border:"1px solid var(--bor)",borderRadius:6,padding:"4px 8px",color:"var(--mut)"}}
+                defaultValue={u.senha} onBlur={async e=>{await sb.from("usuarios").update({senha:e.target.value}).eq("id",u.id);}}/>
+              <span className={`bdg ${u.perfil==="admin"?"by":"bg2"}`}>{u.perfil}</span>
+              <button className="btn bd" style={{padding:"3px 8px",fontSize:11}} onClick={async()=>{await sb.from("usuarios").delete().eq("id",u.id);carregarUsers();}}>✕</button>
+            </div>
+          ))}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          <div><label>Nome</label><input type="text" value={novoUser.nome} onChange={e=>setNovoUser(p=>({...p,nome:e.target.value}))}/></div>
+          <div><label>Login</label><input type="text" value={novoUser.usuario} onChange={e=>setNovoUser(p=>({...p,usuario:e.target.value}))}/></div>
+          <div><label>Senha</label><input type="text" value={novoUser.senha} onChange={e=>setNovoUser(p=>({...p,senha:e.target.value}))}/></div>
+          <div><label>Perfil</label><select value={novoUser.perfil} onChange={e=>setNovoUser(p=>({...p,perfil:e.target.value}))}><option value="operador">Operador</option><option value="admin">Admin</option></select></div>
+        </div>
+        <button className="btn bp" style={{marginTop:10,width:"100%"}} onClick={async()=>{if(novoUser.nome&&novoUser.usuario&&novoUser.senha){await sb.from("usuarios").insert(novoUser);setNovoUser({nome:"",usuario:"",senha:"",perfil:"operador"});carregarUsers();}}}>+ Adicionar usuário</button>
+      </div>
+
+      <div className="card" style={{marginBottom:14}}>
+        <div className="ctit">📱 WhatsApp dos Fornecedores</div>
+        <div style={{fontSize:11,color:"var(--mut)",marginBottom:12}}>Formato: 5519999999999</div>
+        {Object.keys(fornecedores).map(f=>(
+          <div key={f} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+            <div style={{flex:1,fontSize:12,fontWeight:600}}>{f}</div>
+            <input type="text" style={{width:180,fontSize:12,padding:"6px 10px",background:"var(--sur2)",border:"1px solid var(--bor)",borderRadius:6,color:"var(--txt)"}}
+              defaultValue={whatsapps[f]||""} placeholder="5519999999999"
+              onBlur={async e=>{setWhatsapps(p=>({...p,[f]:e.target.value}));await sb.from("fornecedores_config").update({whatsapp:e.target.value}).eq("fornecedor",f);}}/>
+          </div>
+        ))}
+      </div>
+
+      <div className="g2" style={{marginBottom:14}}>
+        <div className="card">
+          <div className="ctit">🏪 Novo fornecedor</div>
+          <div style={{display:"grid",gap:10}}>
+            <div><label>Nome</label><input type="text" value={novoForn} placeholder="Ex: Distribuidora XYZ" onChange={e=>setNovoForn(e.target.value)}/></div>
+            <button className="btn bp" onClick={async()=>{if(novoForn.trim()){await adicionarFornecedor(novoForn);setNovoForn("");}}}>+ Adicionar</button>
+          </div>
+        </div>
+        <div className="card">
+          <div className="ctit">📦 Novo item</div>
+          <div style={{display:"grid",gap:8}}>
+            <div><label>Fornecedor</label>
+              <select value={novoItem.forn} onChange={e=>setNovoItem(p=>({...p,forn:e.target.value}))}>
+                <option value="">Selecione...</option>
+                {Object.keys(fornecedores).map(f=><option key={f} value={f}>{f}</option>)}
+              </select>
+            </div>
+            <div><label>Nome</label><input type="text" value={novoItem.nome} placeholder="Ex: Bacon 1kg" onChange={e=>setNovoItem(p=>({...p,nome:e.target.value}))}/></div>
+            <div className="g2">
+              <div><label>Tipo</label><select value={novoItem.tipo} onChange={e=>setNovoItem(p=>({...p,tipo:e.target.value}))}><option value="un">Unidades</option><option value="peso">Peso (g)</option></select></div>
+              <div><label>Fator</label><input type="number" min={1} value={novoItem.fator} onChange={e=>setNovoItem(p=>({...p,fator:e.target.value}))}/></div>
+            </div>
+            <div className="g2">
+              <div><label>Mínimo</label><input type="number" min={0} value={novoItem.min} onChange={e=>setNovoItem(p=>({...p,min:e.target.value}))}/></div>
+              <div><label>Preço (R$)</label><input type="number" min={0} step="0.01" value={novoItem.preco} onChange={e=>setNovoItem(p=>({...p,preco:e.target.value}))}/></div>
+            </div>
+            <div><label>Embalagem</label><input type="text" value={novoItem.unidade_compra} placeholder="Ex: caixa 30un" onChange={e=>setNovoItem(p=>({...p,unidade_compra:e.target.value}))}/></div>
+            <button className="btn bp" onClick={async()=>{if(novoItem.forn&&novoItem.nome){await adicionarItem(novoItem.forn,{nome:novoItem.nome,min:novoItem.min,preco:novoItem.preco,tipo:novoItem.tipo,fator:novoItem.fator,unidade_compra:novoItem.unidade_compra});setNovoItem({forn:"",nome:"",min:0,preco:0,tipo:"un",fator:1,unidade_compra:"unidade"});}}}>+ Adicionar item</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="ctit">📋 Itens e preços por fornecedor</div>
+        <div style={{marginBottom:14}}><label>Filtrar</label>
+          <select value={fornSel} onChange={e=>setFornSel(e.target.value)}>
+            <option value="">Todos</option>
+            {Object.keys(fornecedores).map(f=><option key={f} value={f}>{f}</option>)}
+          </select>
+        </div>
+        {Object.entries(fornecedores).filter(([f])=>!fornSel||f===fornSel).map(([forn,itens])=>(
+          <div key={forn} style={{marginBottom:20}}>
+            <div style={{fontFamily:"var(--fh)",fontSize:13,fontWeight:700,color:"var(--acc)",padding:"8px 0 6px",borderBottom:"1px solid var(--bor)",marginBottom:8,display:"flex",alignItems:"center",gap:8}}>
+              🏪 {forn}<span className="bdg by">{itens.length} itens</span>
+            </div>
+            <table>
+              <thead><tr><th>Item</th><th style={{width:50,textAlign:"center"}}>Tipo</th><th style={{width:65,textAlign:"center"}}>Mínimo</th><th style={{width:55,textAlign:"center"}}>Fator</th><th style={{width:100}}>Embalagem</th><th style={{width:85,textAlign:"right"}}>Preço (R$)</th></tr></thead>
+              <tbody>
+                {itens.map(item=>(
+                  <tr key={item.nome}>
+                    <td style={{fontWeight:500}}>{item.nome}</td>
+                    <td style={{textAlign:"center"}}><span className={`bdg ${item.tipo==="peso"?"by":"bg2"}`}>{item.tipo==="peso"?"g":"un"}</span></td>
+                    <td><input type="number" min={0} className="inp-s" style={{textAlign:"center"}} defaultValue={item.min} onBlur={e=>updateItem(forn,item.nome,"min",e.target.value)}/></td>
+                    <td><input type="number" min={1} className="inp-s" style={{textAlign:"center"}} defaultValue={item.fator} onBlur={e=>updateItem(forn,item.nome,"fator",e.target.value)}/></td>
+                    <td><input type="text" className="inp-s" defaultValue={item.unidade_compra} onBlur={e=>updateItem(forn,item.nome,"unidade_compra",e.target.value)}/></td>
+                    <td><input type="number" min={0} step="0.01" className="inp-s" style={{textAlign:"right"}} defaultValue={item.preco||""} placeholder="0,00" onBlur={e=>updateItem(forn,item.nome,"preco",e.target.value)}/></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
